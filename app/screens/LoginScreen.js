@@ -6,9 +6,18 @@ import { useFonts } from 'expo-font';
 
 SplashScreen.preventAutoHideAsync();
 
-export default function WelcomeScreen({navigation}) {
+export default function LoginScreen({navigation}) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
+  const handleLogin = () => {
+    // For now, we'll just navigate without actual auth
+    // Later we can add proper authentication here
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Main' }],
+    });
+  };
 
   const [fontsLoaded] = useFonts({
     'Raleway-Regular': require('../assets/fonts/Raleway-Regular.ttf'),
@@ -59,7 +68,7 @@ export default function WelcomeScreen({navigation}) {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.loginButton}>
+        <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
           <Text style={styles.loginButtonText}>Log In</Text>
         </TouchableOpacity>
 
@@ -67,20 +76,20 @@ export default function WelcomeScreen({navigation}) {
 
         <View style={styles.socialButtonsContainer}>
           <TouchableOpacity style={styles.socialButton}>
-          <Image style={{color:'white'}} source={require('../assets/Gmail.png')} />
+            <Image style={{color:'white'}} source={require('../assets/Gmail.png')} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.socialButton}>
-          <Image style={{ bord:'white'}} source={require('../assets/Facebook.png')} />
+            <Image style={{ bord:'white'}} source={require('../assets/Facebook.png')} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.socialButton}>
-          <Image style={{color:'white'}} source={require('../assets/Mark.png')} />
+            <Image style={{color:'white'}} source={require('../assets/Mark.png')} />
           </TouchableOpacity>
         </View>
 
         <View style={styles.signUpContainer}>
           <Text style={styles.noAccountText}>Don't have an account?</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('SignUpScreen')}>
-           <Text style={styles.signUpText}>Sign Up</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
+            <Text style={styles.signUpText}>Sign Up</Text>
           </TouchableOpacity>
 
         </View>

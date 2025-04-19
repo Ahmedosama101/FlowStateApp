@@ -37,7 +37,13 @@ export default function WeightPicker({ navigation }) {
         'Raleway-Medium': require('../assets/fonts/Raleway-Medium.ttf'),
         'Raleway-Bold': require('../assets/fonts/Raleway-Bold.ttf'),
     });
-
+    const handleContinue = () => {
+        if (heightValue) {
+            navigation.navigate('Height');
+        } else {
+            alert("Please select your weight.");
+        }
+    };
     if (!fontsLoaded) {
         return null; // Or a loading indicator
     }
@@ -94,7 +100,7 @@ export default function WeightPicker({ navigation }) {
             </View>
             <Text style={styles.weightText}>{weight} {unit}</Text>
 
-            <TouchableOpacity style={styles.continueButton} onPress={()=>{console.log(weight); navigation.navigate('WorkoutTypeScreen', {weight: weight, unit: unit})}}>
+            <TouchableOpacity style={styles.continueButton} onPress={handleContinue}>
                 <Text style={styles.continueButtonText}>Continue</Text>
             </TouchableOpacity>
         </View>

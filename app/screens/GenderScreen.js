@@ -16,8 +16,7 @@ export default function GenderSelectionScreen ({navigation}) {
   });
   const handleContinue = () => {
     if (selectedGender) {
-     navigation.navigate('AgeScreen')
-      // Navigate to the next screen or perform other actions
+      navigation.navigate('Age');
     } else {
       alert('Please select a gender.'); // Or a better way to display an error
     }

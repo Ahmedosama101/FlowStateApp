@@ -63,7 +63,7 @@ export default function SignUpScreen ({navigation}) {
         By continuing, you agree to <Text style={styles.innerText}> Terms of Use</Text> and <Text style={styles.innerText}> Privacy Policy</Text>.
       </Text>
 
-      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('GenderScreen')}>
+      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Gender')}>
         <Text style={styles.buttonText}>Sign Up</Text>
       </TouchableOpacity>
 
@@ -82,7 +82,7 @@ export default function SignUpScreen ({navigation}) {
 
       <Text style={styles.haveAccountText}>
         Already have an account?{' '}
-        <Text style={styles.loginText} onPress={() => navigation.navigate('WelcomeScreen')}>
+        <Text style={styles.loginText} onPress={() => navigation.navigate('Login')}>
           Log in
         </Text>
       </Text>

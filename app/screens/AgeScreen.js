@@ -18,10 +18,9 @@ export default function AgeSelector({ navigation }) {
 
     const handleContinue = () => {
         if (selectedAge) {
-            navigation.navigate('WeightScreen');
+            navigation.navigate('Weight');
         } else {
-            console.log("Selected Age:", selectedAge); // Use console.log for debugging
-            alert("Please select an age."); // User feedback
+            alert("Please select an age.");
         }
     };
 
@@ -109,7 +108,7 @@ export default function AgeSelector({ navigation }) {
     );
 }
 
-// ... styles (no changes needed)
+// ... styles 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
