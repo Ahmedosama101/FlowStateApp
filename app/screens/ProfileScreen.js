@@ -1,7 +1,10 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, SafeAreaView } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
+import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
+import { supabase } from '../lib/supabase';
+import { CommonActions } from '@react-navigation/native';
 
 export default function ProfileScreen({ navigation }) {
   const [fontsLoaded] = useFonts({
@@ -10,22 +13,99 @@ export default function ProfileScreen({ navigation }) {
     'Raleway-Bold': require('../assets/fonts/Raleway-Bold.ttf'),
   });
 
-  // Mock user data - replace with actual user data from your backend
-  const userData = {
-    fullName: 'John Doe',
-    email: 'john.doe@example.com',
-    age: 28,
-    gender: 'Male',
-    weight: '75 KG',
-    height: '175 cm',
+  const [userData, setUserData] = useState({
+    fullName: '',
+    email: '',
+    phone_number: '',
+    date_of_birth: null,
+    gender: '',
+    weight: '',
+    height: '',
+  });
+
+  const [addressData, setAddressData] = useState({
+    street: 'Not set',
+    city: 'Not set',
+    state: 'Not set',
+    zipCode: 'Not set',
+    country: 'Not set'
+  });
+
+  useEffect(() => {
+    getUserProfile();
+  }, []);
+
+  const getUserProfile = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        
+        if (error) throw error;
+        if (data) {
+          setUserData({
+            fullName: data.full_name || '',
+            email: user.email,
+            phone_number: user.user_metadata.phone_number || '',
+            date_of_birth: data.date_of_birth,
+            gender: data.gender,
+            weight: data.weight,
+            height: data.height,
+          });
+          
+          // Set address data if it exists
+          setAddressData({
+            street: data.street || 'Not set',
+            city: data.city || 'Not set',
+            state: data.state || 'Not set',
+            zipCode: data.zip_code || 'Not set',
+            country: data.country || 'Not set'
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error loading user data:', error.message);
+      Alert.alert('Error', 'Failed to load profile data');
+    }
   };
 
-  const addressData = {
-    street: '123 Main St',
-    city: 'New York',
-    state: 'NY',
-    zipCode: '10001',
-    country: 'USA',
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Not set';
+    const date = new Date(dateString);
+    return date.toLocaleDateString();
+  };
+
+  const calculateAge = (birthDate) => {
+    if (!birthDate) return 'N/A';
+    const today = new Date();
+    const birth = new Date(birthDate);
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    return `${age} years`;
+  };
+
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+
+      // Reset navigation state and redirect to Login
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: 'Auth' }],
+        })
+      );
+    } catch (error) {
+      Alert.alert('Error', error.message);
+    }
   };
 
   if (!fontsLoaded) {
@@ -33,50 +113,61 @@ export default function ProfileScreen({ navigation }) {
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Profile</Text>
-        <TouchableOpacity 
-          style={styles.editButton}
-          onPress={() => navigation.navigate('EditProfile', { userData })}
-        >
-          <Icon name="edit" size={20} color="#000" />
-          <Text style={styles.editButtonText}>Edit</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Personal Information</Text>
-        <View style={styles.infoContainer}>
-          <InfoItem label="Full Name" value={userData.fullName} />
-          <InfoItem label="Email" value={userData.email} />
-          <InfoItem label="Age" value={userData.age.toString()} />
-          <InfoItem label="Gender" value={userData.gender} />
-          <InfoItem label="Weight" value={userData.weight} />
-          <InfoItem label="Height" value={userData.height} />
-        </View>
-      </View>
-
-      <View style={styles.section}>
-        <View style={styles.addressHeader}>
-          <Text style={styles.sectionTitle}>Address Information</Text>
+    <SafeAreaView style={styles.container}>
+      <ScrollView>
+        <View style={styles.header}>
+          <Text style={styles.title}>Profile</Text>
           <TouchableOpacity 
             style={styles.editButton}
-            onPress={() => navigation.navigate('EditAddress', { addressData })}
+            onPress={() => navigation.navigate('EditProfile', { userData })}
           >
             <Icon name="edit" size={20} color="#000" />
             <Text style={styles.editButtonText}>Edit</Text>
           </TouchableOpacity>
         </View>
-        <View style={styles.infoContainer}>
-          <InfoItem label="Street" value={addressData.street} />
-          <InfoItem label="City" value={addressData.city} />
-          <InfoItem label="State" value={addressData.state} />
-          <InfoItem label="ZIP Code" value={addressData.zipCode} />
-          <InfoItem label="Country" value={addressData.country} />
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Personal Information</Text>
+          <View style={styles.infoContainer}>
+            <InfoItem label="Full Name" value={userData.fullName} />
+            <InfoItem label="Email" value={userData.email} />
+            <InfoItem label="Phone Number" value={userData.phone_number || 'Not set'} />
+            <InfoItem label="Date of Birth" value={formatDate(userData.date_of_birth)} />
+            <InfoItem label="Age" value={calculateAge(userData.date_of_birth)} />
+            <InfoItem label="Gender" value={userData.gender || 'Not set'} />
+            <InfoItem label="Weight" value={userData.weight ? `${userData.weight} KG` : 'Not set'} />
+            <InfoItem label="Height" value={userData.height ? `${userData.height} cm` : 'Not set'} />
+          </View>
         </View>
-      </View>
-    </ScrollView>
+
+        <View style={styles.section}>
+          <View style={styles.addressHeader}>
+            <Text style={styles.sectionTitle}>Address Information</Text>
+            <TouchableOpacity 
+              style={styles.editButton}
+              onPress={() => navigation.navigate('EditAddress', { addressData })}
+            >
+              <Icon name="edit" size={20} color="#000" />
+              <Text style={styles.editButtonText}>Edit</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.infoContainer}>
+            <InfoItem label="Street" value={addressData.street} />
+            <InfoItem label="City" value={addressData.city} />
+            <InfoItem label="State" value={addressData.state} />
+            <InfoItem label="ZIP Code" value={addressData.zipCode} />
+            <InfoItem label="Country" value={addressData.country} />
+          </View>
+        </View>
+
+        <TouchableOpacity 
+          style={styles.logoutButton} 
+          onPress={handleLogout}
+        >
+          <Text style={styles.logoutButtonText}>Logout</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -148,5 +239,20 @@ const styles = StyleSheet.create({
   editButtonText: {
     marginLeft: 5,
     fontFamily: 'Raleway-Medium',
+  },
+  logoutButton: {
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#000',
+    borderRadius: 25,
+    padding: 15,
+    marginHorizontal: 20,
+    marginVertical: 20,
+    alignItems: 'center',
+  },
+  logoutButtonText: {
+    fontSize: 18,
+    fontFamily: 'Raleway-Bold',
+    color: '#000',
   },
 });

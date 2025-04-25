@@ -46,6 +46,7 @@ const UserDetails = ({ route, navigation }) => {
       </TouchableOpacity>
       
       <Image source={{ uri: user.image }} style={styles.detailsImage} />
+
       <Text style={styles.detailsName}>{user.name}</Text>
 
       <View style={styles.detailsRow}>

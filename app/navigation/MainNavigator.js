@@ -2,9 +2,9 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import MainPage from '../screens/MainPage';
-import MatchesScreen from '../screens/MatchesScreen';
-import ExploreScreen from '../screens/ExploreScreen';
-import BookingScreen from '../screens/BookingScreen';
+import MatchesScreen from '../screens/matches/MatchesScreen';
+import ExploreScreen from '../screens/explore/ExploreScreen';
+import BookingScreen from '../screens/booking/BookingScreen';
 import ProfileStackNavigator from './ProfileStackNavigator';
 import { SafeAreaView } from 'react-native-safe-area-context';
 

@@ -21,7 +21,22 @@
         "foregroundImage": "./app/assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.ahmedosama101.flowstate"
+      "package": "com.ahmedosama101.flowstate",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "flowstate",
+              "host": "*"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
     },
     "web": {
       "favicon": "./app/assets/favicon.png"
@@ -40,6 +55,7 @@
     },
     "updates": {
       "url": "https://u.expo.dev/11f4a7d8-8b21-4710-bf0d-e471551ea7aa"
-    }
+    },
+    "scheme": "flowstate"
   }
 }

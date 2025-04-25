@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Dimensions, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { useFonts } from 'expo-font';
+import { supabase } from '../lib/supabase'; // Fixed import path
 
 const { height } = Dimensions.get('window');
 const RULER_HEIGHT = height * 0.45; // Adjust as needed
@@ -61,11 +62,31 @@ export default function HeightPicker({ navigation }) {
     });
 
     // Handle the continue button press
-    const handleContinue = () => {
+    const handleContinue = async () => {
         if (heightValue) {
-            navigation.navigate('Belt');
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    // Convert height to CM if unit is FT
+                    const heightInCm = unit === 'FT' ? ftToCm(heightValue) : heightValue;
+                    
+                    const { error } = await supabase
+                        .from('profiles')
+                        .update({
+                            height: heightInCm,
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('id', user.id);
+
+                    if (error) throw error;
+                    navigation.navigate('Belt');
+                }
+            } catch (error) {
+                console.error('Error saving height:', error.message);
+                Alert.alert('Error', 'Failed to save height. Please try again.');
+            }
         } else {
-            alert("Please select your height.");
+            Alert.alert('Error', 'Please select your height.');
         }
     };
 

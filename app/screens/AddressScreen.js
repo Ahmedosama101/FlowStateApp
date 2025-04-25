@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { useFonts } from 'expo-font';
+import { supabase } from '../lib/supabase'; // Fixed import path
 
 export default function AddressScreen({ navigation }) {
     const [address, setAddress] = useState({
@@ -15,9 +16,35 @@ export default function AddressScreen({ navigation }) {
         pinPoint: '',
     });
 
-    const handleContinue = () => {
-        // Validate address fields if needed
-        navigation.navigate('Profile');
+    const handleContinue = async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                navigation.navigate('Auth');
+                return;
+            }
+
+            const { error } = await supabase
+                .from('profiles')
+                .update({
+                    //street: address.street,
+                   // apt: address.apt,
+                    //city: address.city,
+                   // state: address.state,
+                   // province: address.province,
+                    country: address.country,
+                   // postal_code: address.postalCode,
+                    //pin_point: address.pinPoint,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', user.id);
+
+            if (error) throw error;
+            navigation.navigate('Main');
+        } catch (error) {
+            console.error('Error saving address:', error.message);
+            Alert.alert('Error', 'Failed to save address. Please try again.');
+        }
     };
 
     const [fontsLoaded] = useFonts({

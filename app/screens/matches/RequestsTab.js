@@ -35,10 +35,6 @@ const initialSentRequests = [
 const RequestsTab = () => {
   const [sentRequests, setSentRequests] = useState(initialSentRequests);
 
-  const handleCancel = (requestId) => {
-    setSentRequests(prev => prev.filter(request => request.id !== requestId));
-  };
-
   const renderRequestCard = ({ item }) => (
     <View style={styles.card}>
       <Image source={{ uri: item.receiver.image }} style={styles.cardImage} />
@@ -46,8 +42,8 @@ const RequestsTab = () => {
         <Text style={styles.cardName}>{item.receiver.name}</Text>
         <Text>Belt: {item.receiver.belt}</Text>
         <TouchableOpacity 
-          style={[styles.actionButton, styles.cancelButton]}
-          onPress={() => handleCancel(item.id)}
+          style={styles.cancelButton}
+          onPress={() => setSentRequests(prev => prev.filter(req => req.id !== item.id))}
         >
           <Text style={styles.buttonText}>Cancel Request</Text>
         </TouchableOpacity>
@@ -109,16 +105,13 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 5,
   },
-  actionButton: {
+  cancelButton: {
+    backgroundColor: '#f44336',
     paddingVertical: 8,
     paddingHorizontal: 15,
     borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignSelf: 'flex-start',
     marginTop: 10,
-  },
-  cancelButton: {
-    backgroundColor: '#f44336',
   },
   buttonText: {
     color: '#fff',

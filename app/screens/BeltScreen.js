@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { useFonts } from 'expo-font';
+import { supabase } from '../../app/lib/supabase'; // Fixed import path
 
 export default function BeltPicker({ navigation }) {
     const [selectedBelt, setSelectedBelt] = useState(null);
@@ -24,11 +25,33 @@ export default function BeltPicker({ navigation }) {
         'Raleway-Bold': require('../assets/fonts/Raleway-Bold.ttf'),
     });
 
-    const handleContinue = () => {
+    const handleContinue = async () => {
         if (selectedBelt) {
-            navigation.navigate('Address');
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    console.log('Saving belt data:', { belt: selectedBelt.name, id: user.id });
+                    const { error } = await supabase
+                        .from('profiles')
+                        .update({
+                            belt_level: selectedBelt.name,
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('id', user.id);
+
+                    if (error) {
+                        console.error('Supabase error details:', error);
+                        throw error;
+                    }
+                    navigation.navigate('Address');
+                }
+            } catch (error) {
+                console.error('Error saving belt:', error.message);
+                console.error('Full error:', JSON.stringify(error));
+                Alert.alert('Error', 'Failed to save belt level. Please try again.');
+            }
         } else {
-            alert("Please select a belt.");
+            Alert.alert('Error', 'Please select a belt.');
         }
     };
 

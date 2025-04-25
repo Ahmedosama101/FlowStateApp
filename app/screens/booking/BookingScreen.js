@@ -1,9 +1,9 @@
 import React from 'react';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { View, StyleSheet } from 'react-native';
-import UserWelcome from '../../components/UserWelcome';
-import PeopleTab from './explore/PeopleTab';
-import GymsTab from './explore/GymsTab';
+import UserWelcome from '../../../components/UserWelcome';
+import ActiveBookingsTab from './ActiveBookingsTab';
+import BookingHistoryTab from './BookingHistoryTab';
 
 const Tab = createMaterialTopTabNavigator();
 
@@ -12,7 +12,7 @@ const dummyUser = {
   profileImage: null,
 };
 
-export default function ExploreScreen() {
+export default function BookingScreen() {
   return (
     <View style={styles.container}>
       <UserWelcome user={dummyUser} />
@@ -27,17 +27,17 @@ export default function ExploreScreen() {
         }}
       >
         <Tab.Screen 
-          name="People" 
-          component={PeopleTab}
+          name="ActiveBookings" 
+          component={ActiveBookingsTab}
           options={{
-            tabBarLabel: 'People'
+            tabBarLabel: 'Active Bookings'
           }}
         />
         <Tab.Screen 
-          name="Gyms" 
-          component={GymsTab}
+          name="BookingHistory" 
+          component={BookingHistoryTab}
           options={{
-            tabBarLabel: 'Gyms'
+            tabBarLabel: 'History'
           }}
         />
       </Tab.Navigator>

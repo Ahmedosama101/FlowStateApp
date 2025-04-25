@@ -1,19 +1,18 @@
 import React from 'react';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { View, StyleSheet } from 'react-native';
-import UserWelcome from '../../components/UserWelcome';
-import MatchesTabNavigator from './MatchesTabNavigator';
-import MatchInvitesTab from './MatchInvitesTab';
-import RequestsTab from './RequestsTab';
+import UserWelcome from '../../../components/UserWelcome';
+import PeopleTab from './PeopleTab';
+import GymsTab from './GymsTab';
 
 const Tab = createMaterialTopTabNavigator();
 
 const dummyUser = {
-  name: 'John Doe',
+  name: null,
   profileImage: null,
 };
 
-export default function MatchesScreen() {
+export default function ExploreScreen() {
   return (
     <View style={styles.container}>
       <UserWelcome user={dummyUser} />
@@ -28,24 +27,17 @@ export default function MatchesScreen() {
         }}
       >
         <Tab.Screen 
-          name="MatchesList" 
-          component={MatchesTabNavigator}
+          name="People" 
+          component={PeopleTab}
           options={{
-            tabBarLabel: 'Matches'
+            tabBarLabel: 'People'
           }}
         />
         <Tab.Screen 
-          name="MatchInvites" 
-          component={MatchInvitesTab}
+          name="Gyms" 
+          component={GymsTab}
           options={{
-            tabBarLabel: 'Match Invites'
-          }}
-        />
-        <Tab.Screen 
-          name="Requests" 
-          component={RequestsTab}
-          options={{
-            tabBarLabel: 'Requests'
+            tabBarLabel: 'Gyms'
           }}
         />
       </Tab.Navigator>

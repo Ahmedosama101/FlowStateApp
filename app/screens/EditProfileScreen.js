@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { useFonts } from 'expo-font';
+import { supabase } from '../lib/supabase';  // Fixed import path
 
 export default function EditProfileScreen({ route, navigation }) {
   const { userData } = route.params;
@@ -13,11 +14,31 @@ export default function EditProfileScreen({ route, navigation }) {
     'Raleway-Bold': require('../assets/fonts/Raleway-Bold.ttf'),
   });
 
-  const handleSave = () => {
-    // Here you would typically make an API call to update the user data
-    console.log('Saving user data:', formData);
-    // Navigate back after saving
-    navigation.goBack();
+  const handleSave = async () => {
+    try {
+      // Update user metadata for phone number if it changed
+      if (formData.phone_number !== userData.phone_number) {
+        const { error: metadataError } = await supabase.auth.updateUser({
+          data: { phone_number: formData.phone_number }
+        });
+        if (metadataError) throw metadataError;
+      }
+
+      // Update other profile fields
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          full_name: formData.fullName,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userData.id);
+
+      if (profileError) throw profileError;
+      
+      navigation.goBack();
+    } catch (error) {
+      Alert.alert('Error', error.message);
+    }
   };
 
   const updateField = (field, value) => {
@@ -78,6 +99,12 @@ export default function EditProfileScreen({ route, navigation }) {
           label="Height"
           value={formData.height}
           onChangeText={(text) => updateField('height', text)}
+        />
+        <FormField
+          label="Phone Number"
+          value={formData.phone_number}
+          onChangeText={(text) => updateField('phone_number', text)}
+          keyboardType="phone-pad"
         />
       </View>
     </ScrollView>

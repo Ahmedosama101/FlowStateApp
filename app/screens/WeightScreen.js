@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Dimensions } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { useFonts } from 'expo-font';
+import { supabase } from '../lib/supabase'; // Assuming supabaseClient is set up
 
 const { width } = Dimensions.get('window');
 const RULER_WIDTH = width * 1;
@@ -37,9 +38,28 @@ export default function WeightPicker({ navigation }) {
         'Raleway-Medium': require('../assets/fonts/Raleway-Medium.ttf'),
         'Raleway-Bold': require('../assets/fonts/Raleway-Bold.ttf'),
     });
-    const handleContinue = () => {
-        if (heightValue) {
-            navigation.navigate('Height');
+    const handleContinue = async () => {
+        if (weight) {
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    // Convert weight to KG if unit is LB
+                    const weightInKg = unit === 'LB' ? parseFloat(weight) * 0.453592 : parseFloat(weight);
+                    
+                    const { error } = await supabase
+                        .from('profiles')
+                        .update({
+                            weight: weightInKg
+                        })
+                        .eq('id', user.id);
+
+                    if (error) throw error;
+                    navigation.navigate('Height');
+                }
+            } catch (error) {
+                console.error('Error saving weight:', error.message);
+                alert('Failed to save weight. Please try again.');
+            }
         } else {
             alert("Please select your weight.");
         }
