@@ -24,6 +24,8 @@ export default function BookingScreen() {
           tabBarPressColor: 'transparent',
           swipeEnabled: true,
           animationEnabled: true,
+          tabBarActiveTintColor: '#000',
+          tabBarInactiveTintColor: '#666',
         }}
       >
         <Tab.Screen 
@@ -62,6 +64,7 @@ const styles = StyleSheet.create({
     textTransform: 'none',
     fontWeight: '600',
     fontSize: 14,
+    color: '#000',
   },
   tabIndicator: {
     backgroundColor: '#007BFF',

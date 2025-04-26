@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import UserWelcome from '../../../components/UserWelcome';
-import MatchesTab from './MatchesTab';
+import MatchesTabNavigator from './MatchesTabNavigator';
 import MatchInvitesTab from './MatchInvitesTab';
 import RequestsTab from './RequestsTab';
 
@@ -25,24 +25,26 @@ const MatchesScreen = () => {
           tabBarPressColor: 'transparent',
           swipeEnabled: true,
           animationEnabled: true,
+          tabBarActiveTintColor: '#000',
+          tabBarInactiveTintColor: '#666',
         }}
       >
         <Tab.Screen 
-          name="Matches" 
-          component={MatchesTab}
+          name="MatchesList" 
+          component={MatchesTabNavigator}
           options={{
             tabBarLabel: 'Matches'
           }}
         />
         <Tab.Screen 
-          name="Invites" 
+          name="MatchInvites" 
           component={MatchInvitesTab}
           options={{
             tabBarLabel: 'Invites'
           }}
         />
         <Tab.Screen 
-          name="Requests" 
+          name="SentRequests" 
           component={RequestsTab}
           options={{
             tabBarLabel: 'Requests'

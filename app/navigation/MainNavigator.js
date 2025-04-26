@@ -13,7 +13,6 @@ const Tab = createBottomTabNavigator();
 export default function MainNavigator() {
   return (
     <Tab.Navigator
-      initialRouteName="Home"
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarIcon: ({ focused, color, size }) => {
@@ -64,7 +63,15 @@ export default function MainNavigator() {
           fontFamily: 'Raleway-Medium',
         },
       })}
+      initialRouteName="Home"
     >
+      <Tab.Screen 
+        name="Home" 
+        component={MainPage}
+        options={{
+          tabBarLabel: 'Home'
+        }}
+      />
       <Tab.Screen 
         name="Explore" 
         component={ExploreScreen}
@@ -77,13 +84,6 @@ export default function MainNavigator() {
         component={MatchesScreen}
         options={{
           tabBarLabel: 'Matches'
-        }}
-      />
-      <Tab.Screen 
-        name="Home" 
-        component={MainPage}
-        options={{
-          tabBarLabel: 'Home'
         }}
       />
       <Tab.Screen 

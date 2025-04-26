@@ -24,6 +24,8 @@ export default function ExploreScreen() {
           tabBarPressColor: 'transparent',
           swipeEnabled: true,
           animationEnabled: true,
+          tabBarActiveTintColor: '#000',
+          tabBarInactiveTintColor: '#666',
         }}
       >
         <Tab.Screen 

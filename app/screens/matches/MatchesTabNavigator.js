@@ -1,40 +1,10 @@
 import React from 'react';
-import { View, Text, Image, StyleSheet, FlatList, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, Image, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import MatchesTab from './MatchesTab';
 
 const Stack = createStackNavigator();
-
-const dummyMatchedUsers = [
-  { id: '1', name: 'Alex', image: 'https://via.placeholder.com/150' },
-  { id: '2', name: 'Chris', image: 'https://via.placeholder.com/150' },
-  { id: '3', name: 'Jordan', image: 'https://via.placeholder.com/150' },
-  { id: '4', name: 'Taylor', image: 'https://via.placeholder.com/150' },
-];
-
-const MatchesTab = ({ navigation }) => {
-  const renderCard = ({ item }) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => navigation.navigate('UserDetails', { user: item })}
-    >
-      <Image source={{ uri: item.image }} style={styles.cardImage} />
-      <Text style={styles.cardName}>{item.name}</Text>
-    </TouchableOpacity>
-  );
-
-  return (
-    <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
-      <FlatList
-        data={dummyMatchedUsers}
-        renderItem={renderCard}
-        keyExtractor={(item) => item.id}
-        numColumns={2}
-        contentContainerStyle={styles.listContainer}
-      />
-    </SafeAreaView>
-  );
-};
 
 const UserDetails = ({ route, navigation }) => {
   const { user } = route.params;
@@ -45,15 +15,15 @@ const UserDetails = ({ route, navigation }) => {
         <Text style={styles.backButtonText}>Back</Text>
       </TouchableOpacity>
       
-      <Image source={{ uri: user.image }} style={styles.detailsImage} />
+      <Image source={{ uri: user.profile_images?.[0]?.image_url || 'https://via.placeholder.com/150' }} style={styles.detailsImage} />
 
-      <Text style={styles.detailsName}>{user.name}</Text>
+      <Text style={styles.detailsName}>{user.full_name}</Text>
 
       <View style={styles.detailsRow}>
         <Text style={styles.detailItem}>👤 Gender: {user.gender || 'N/A'}</Text>
         <Text style={styles.detailItem}>📏 Height: {user.height || 'N/A'} cm</Text>
         <Text style={styles.detailItem}>⚖️ Weight: {user.weight || 'N/A'} kg</Text>
-        <Text style={styles.detailItem}>🥋 Belt: {user.belt || 'N/A'}</Text>
+        <Text style={styles.detailItem}>🥋 Belt: {user.belt_level || 'N/A'}</Text>
       </View>
 
       <TouchableOpacity style={styles.sessionButton}>

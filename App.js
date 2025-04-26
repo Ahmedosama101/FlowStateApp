@@ -1,27 +1,47 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { supabase } from './app/lib/supabase';
 import AuthNavigator from './app/navigation/AuthNavigator';
 import MainNavigator from './app/navigation/MainNavigator';
-import GenderScreen from './app/screens/GenderScreen';
-import DateOfBirthScreen from './app/screens/DateOfBirthScreen';
-import WeightScreen from './app/screens/WeightScreen';
-
-const Stack = createNativeStackNavigator();
+import { View, ActivityIndicator } from 'react-native';
+import { useFonts } from 'expo-font';
 
 export default function App() {
+  const [session, setSession] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const [fontsLoaded] = useFonts({
+    'Raleway-Regular': require('./app/assets/fonts/Raleway-Regular.ttf'),
+    'Raleway-Medium': require('./app/assets/fonts/Raleway-Medium.ttf'),
+    'Raleway-Bold': require('./app/assets/fonts/Raleway-Bold.ttf'),
+  });
+
+  useEffect(() => {
+    // Check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setLoading(false);
+    });
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  if (!fontsLoaded || loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#000" />
+      </View>
+    );
+  }
+
   return (
-    <SafeAreaProvider>
-      <NavigationContainer>
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="Auth" component={AuthNavigator} />
-          <Stack.Screen name="Gender" component={GenderScreen} />
-          <Stack.Screen name="DateOfBirth" component={DateOfBirthScreen} />
-          <Stack.Screen name="Weight" component={WeightScreen} />
-          <Stack.Screen name="Main" component={MainNavigator} />
-        </Stack.Navigator>
-      </NavigationContainer>
-    </SafeAreaProvider>
+    <NavigationContainer>
+      {session ? <MainNavigator /> : <AuthNavigator />}
+    </NavigationContainer>
   );
 }

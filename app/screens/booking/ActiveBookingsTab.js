@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
 import { createStackNavigator } from '@react-navigation/stack';
 import Icon from 'react-native-vector-icons/FontAwesome';
 
@@ -140,6 +140,16 @@ function BookingDetailScreen({ route, navigation }) {
 }
 
 function BookingsList({ navigation }) {
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    // Add your data fetching logic here
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 2000);
+  }, []);
+
   const renderBooking = ({ item }) => (
     <BookingCard
       booking={item}
@@ -153,6 +163,9 @@ function BookingsList({ navigation }) {
       renderItem={renderBooking}
       keyExtractor={(item) => item.id}
       contentContainerStyle={styles.listContainer}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
     />
   );
 }

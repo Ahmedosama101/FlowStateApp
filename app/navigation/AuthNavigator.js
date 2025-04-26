@@ -38,7 +38,7 @@ export default function AuthNavigator() {
       <Stack.Screen name="Belt" component={BeltScreen} />
       <Stack.Screen name="Address" component={AddressScreen} />
       <Stack.Screen name="Profile" component={ProfScreen} />
-      <Stack.Screen name="Macthes" component={MatchesScreen} />
+      <Stack.Screen name="Matches" component={MatchesScreen} />
     </Stack.Navigator>
   );
 }

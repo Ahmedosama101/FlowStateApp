@@ -14,10 +14,8 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     persistSession: true,
     detectSessionInUrl: false,
     flowType: 'pkce',
-    autoConfirmUser: false // Changed to false to require email verification
-  },
-  persistSession: true,
-  networkRetries: 3
+    autoConfirmUser: false
+  }
 });
 
 export default supabase;
