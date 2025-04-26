@@ -3,6 +3,7 @@ import { createMaterialTopTabNavigator } from '@react-navigation/material-top-ta
 import { View, StyleSheet } from 'react-native';
 import UserWelcome from '../../../components/UserWelcome';
 import ActiveBookingsTab from './ActiveBookingsTab';
+import BookingInvitesTab from './BookingInvitesTab';
 import BookingHistoryTab from './BookingHistoryTab';
 
 const Tab = createMaterialTopTabNavigator();
@@ -32,7 +33,14 @@ export default function BookingScreen() {
           name="ActiveBookings" 
           component={ActiveBookingsTab}
           options={{
-            tabBarLabel: 'Active Bookings'
+            tabBarLabel: 'Active'
+          }}
+        />
+        <Tab.Screen 
+          name="BookingInvites" 
+          component={BookingInvitesTab}
+          options={{
+            tabBarLabel: 'Invites'
           }}
         />
         <Tab.Screen 
@@ -64,7 +72,6 @@ const styles = StyleSheet.create({
     textTransform: 'none',
     fontWeight: '600',
     fontSize: 14,
-    color: '#000',
   },
   tabIndicator: {
     backgroundColor: '#007BFF',

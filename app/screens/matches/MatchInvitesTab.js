@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, ActivityIndicator, Alert, RefreshControl } from 'react-native';
 import { supabase } from '../../lib/supabase';
 
-const MatchInvitesTab = () => {
+const MatchInvitesTab = ({ navigation }) => {
   const [receivedRequests, setReceivedRequests] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -90,60 +90,31 @@ const MatchInvitesTab = () => {
         return;
       }
 
-      console.log('Operation details:', {
-        action: status,
-        requestId,
-        userId: user.id,
-        timestamp: new Date().toISOString()
-      });
-
       // First verify the request exists and is pending
-      const { data: request, error: fetchError } = await supabase
+      const { data: request, error: verifyError } = await supabase
         .from('match_requests')
-        .select('*, requester:profiles!match_requests_requester_id_fkey (id)')
+        .select('*')
         .eq('id', requestId)
         .eq('requested_id', user.id)
         .eq('status', 'pending')
         .single();
 
-      console.log('Fetch request result:', {
-        found: !!request,
-        error: fetchError?.message,
-        requestDetails: request
-      });
-
-      if (fetchError || !request) {
-        console.error('Error fetching request:', {
-          error: fetchError?.message,
-          requestId,
-          userId: user.id
-        });
-        Alert.alert('Error', 'Unable to find the pending request');
+      if (verifyError || !request) {
+        console.error('Request verification failed:', verifyError);
+        Alert.alert('Error', 'Could not find the request or it has already been processed');
         return;
       }
 
-      // Attempt to update the request status
-      const { data: updateResult, error: updateError } = await supabase
+      const { error: updateError } = await supabase
         .from('match_requests')
         .update({
-          status,
+          status: status,
           updated_at: new Date().toISOString()
         })
         .eq('id', requestId)
         .eq('requested_id', user.id)
         .eq('status', 'pending')
         .select();
-
-      console.log('Update operation result:', {
-        success: !updateError,
-        error: updateError?.message,
-        result: updateResult,
-        attempted: {
-          status,
-          requestId,
-          userId: user.id
-        }
-      });
 
       if (updateError) {
         console.error('Update failed:', {
@@ -163,25 +134,21 @@ const MatchInvitesTab = () => {
         )
       );
 
-      console.log('Local state updated, operation complete:', {
-        status,
-        requestId,
-        success: true
-      });
-
-      Alert.alert(
-        'Success',
-        `Request ${status === 'accepted' ? 'accepted' : 'rejected'} successfully`
-      );
-
+      // If request was accepted, navigate to session invite screen
+      if (status === 'accepted') {
+        // Navigate to the session invite screen with the requester's info
+        const matchedRequest = receivedRequests.find(r => r.id === requestId);
+        if (matchedRequest) {
+          navigation.navigate('SessionInvite', {
+            partnerId: matchedRequest.requester_id,
+            partnerName: matchedRequest.requester.full_name,
+            matchRequestId: requestId
+          });
+        }
+      }
     } catch (error) {
-      console.error('Unexpected error:', {
-        error: error.message,
-        stack: error.stack,
-        requestId,
-        status
-      });
-      Alert.alert('Error', 'An unexpected error occurred');
+      console.error('Error handling request response:', error.message);
+      Alert.alert('Error', 'Failed to process your response. Please try again.');
     }
   };
 
