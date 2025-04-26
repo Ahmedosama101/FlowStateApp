@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { supabase } from '../../lib/supabase';
@@ -8,6 +8,7 @@ export default function SessionInviteScreen({ navigation, route }) {
   const { partnerId, partnerName, matchRequestId } = route.params;
   const [selectedGym, setSelectedGym] = useState(null);
   const [selectedDateTime, setSelectedDateTime] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   const handleGymSelection = () => {
     navigation.navigate('GymSelection', {
@@ -32,6 +33,22 @@ export default function SessionInviteScreen({ navigation, route }) {
     });
   };
 
+  const formatDateForDatabase = (dateString) => {
+    try {
+      const parts = dateString.split(' ');
+      const months = {
+        Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06',
+        Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12'
+      };
+      // Input format: "Wed Apr 26 2025"
+      // Output format: "2025-04-26"
+      return `${parts[3]}-${months[parts[1]]}-${parts[2].padStart(2, '0')}`;
+    } catch (error) {
+      console.error('Date formatting error:', error);
+      return null;
+    }
+  };
+
   const handleSendInvite = async () => {
     if (!selectedGym || !selectedDateTime) {
       Alert.alert('Incomplete Selection', 'Please select both gym and time');
@@ -39,32 +56,51 @@ export default function SessionInviteScreen({ navigation, route }) {
     }
 
     try {
-      const { data: userSession } = await supabase.auth.getSession();
-      if (!userSession?.session?.user) {
+      setLoading(true);
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
         Alert.alert('Error', 'Please login to send invites');
         return;
       }
 
-      const { error } = await supabase.from('session_invites').insert({
-        sender_id: userSession.session.user.id,
+      const formattedDate = formatDateForDatabase(selectedDateTime.date);
+      if (!formattedDate) {
+        throw new Error('Invalid date format');
+      }
+
+      const newInvite = {
+        sender_id: user.id,
         receiver_id: partnerId,
         gym_id: selectedGym.id,
-        gym_name: selectedGym.name,
-        date: selectedDateTime.date,
+        booking_date: formattedDate,
         time: selectedDateTime.time,
-        status: 'pending'
-      });
+        status: 'pending',
+        notes: `Training session with ${partnerName} at ${selectedGym.name}`,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
 
-      if (error) throw error;
+      console.log('Sending booking invite:', newInvite); // For debugging
 
-      Alert.alert(
-        'Success',
-        'Training session invite sent successfully!',
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
-      );
+      const { data, error } = await supabase
+        .from('booking_invites')
+        .insert([newInvite])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Database error:', error);
+        throw error;
+      }
+
+      console.log('Successfully created invite:', data); // For debugging
+      navigation.navigate('SessionInviteSuccess');
     } catch (error) {
       console.error('Error sending invite:', error);
-      Alert.alert('Error', 'Failed to send invite. Please try again.');
+      Alert.alert('Error', `Failed to send invite: ${error.message}`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -85,6 +121,7 @@ export default function SessionInviteScreen({ navigation, route }) {
         <TouchableOpacity
           style={styles.selectionButton}
           onPress={handleGymSelection}
+          disabled={loading}
         >
           <View style={styles.selectionContent}>
             <Icon name="map-marker" size={24} color="#007BFF" />
@@ -104,7 +141,7 @@ export default function SessionInviteScreen({ navigation, route }) {
             !selectedGym && styles.disabledButton
           ]}
           onPress={handleTimeSelection}
-          disabled={!selectedGym}
+          disabled={!selectedGym || loading}
         >
           <View style={styles.selectionContent}>
             <Icon name="clock-o" size={24} color="#007BFF" />
@@ -123,12 +160,16 @@ export default function SessionInviteScreen({ navigation, route }) {
         <TouchableOpacity
           style={[
             styles.sendButton,
-            (!selectedGym || !selectedDateTime) && styles.disabledButton
+            (!selectedGym || !selectedDateTime || loading) && styles.disabledButton
           ]}
           onPress={handleSendInvite}
-          disabled={!selectedGym || !selectedDateTime}
+          disabled={!selectedGym || !selectedDateTime || loading}
         >
-          <Text style={styles.sendButtonText}>Send Invite</Text>
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.sendButtonText}>Send Invite</Text>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>

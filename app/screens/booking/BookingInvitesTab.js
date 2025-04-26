@@ -59,8 +59,6 @@ export default function BookingInvitesTab() {
           sender:profiles!booking_invites_sender_id_fkey (
             id,
             full_name,
-            gender,
-            belt_level,
             profile_images (
               image_url,
               is_primary
@@ -105,6 +103,13 @@ export default function BookingInvitesTab() {
         return;
       }
 
+      // Update local state
+      setReceivedInvites(current =>
+        current.map(invite =>
+          invite.id === inviteId ? { ...invite, status } : invite
+        )
+      );
+
       Alert.alert(
         'Success',
         `Booking invite ${status === 'accepted' ? 'accepted' : 'rejected'} successfully`
@@ -118,7 +123,7 @@ export default function BookingInvitesTab() {
   const renderInvite = ({ item }) => (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
-        <Text style={styles.partnerName}>{item.sender.full_name}</Text>
+        <Text style={styles.partnerName}>{item.sender?.full_name || 'Unknown User'}</Text>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
           <Text style={styles.statusText}>
             {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
@@ -129,22 +134,16 @@ export default function BookingInvitesTab() {
       <View style={styles.cardDetails}>
         <View style={styles.detailRow}>
           <Icon name="map-marker" size={16} color="#666" />
-          <Text style={styles.detailText}>{item.gym_id}</Text>
+          <Text style={styles.detailText}>{item.gym_name}</Text>
         </View>
         <View style={styles.detailRow}>
           <Icon name="calendar" size={16} color="#666" />
-          <Text style={styles.detailText}>{new Date(item.date).toLocaleDateString()}</Text>
+          <Text style={styles.detailText}>{new Date(item.booking_date).toLocaleDateString()}</Text>
         </View>
         <View style={styles.detailRow}>
           <Icon name="clock-o" size={16} color="#666" />
-          <Text style={styles.detailText}>{item.time}</Text>
+          <Text style={styles.detailText}>{item.specific_time}</Text>
         </View>
-        {item.notes && (
-          <View style={styles.detailRow}>
-            <Icon name="sticky-note-o" size={16} color="#666" />
-            <Text style={styles.detailText}>{item.notes}</Text>
-          </View>
-        )}
       </View>
 
       {item.status === 'pending' && (
