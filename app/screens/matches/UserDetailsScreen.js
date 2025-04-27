@@ -53,7 +53,10 @@ export default function UserDetailsScreen({ route, navigation }) {
 
         <TouchableOpacity 
           style={styles.sessionButton}
-          onPress={() => navigation.navigate('SessionInvite', { user })}
+          onPress={() => navigation.navigate('SessionInvite', {
+            partnerId: user.id,
+            partnerName: user.full_name
+          })}
         >
           <Text style={styles.sessionButtonText}>Send Session Invite</Text>
         </TouchableOpacity>

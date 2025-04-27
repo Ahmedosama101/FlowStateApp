@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/FontAwesome';
@@ -9,6 +9,25 @@ export default function SessionInviteScreen({ navigation, route }) {
   const [selectedGym, setSelectedGym] = useState(null);
   const [selectedDateTime, setSelectedDateTime] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // Check and refresh session when component mounts
+    const checkSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.refreshSession();
+        if (error) {
+          console.error('Session refresh error:', error);
+          navigation.navigate('Login');
+          return;
+        }
+        console.log('Session refreshed:', session?.user?.id);
+      } catch (error) {
+        console.error('Session check error:', error);
+      }
+    };
+    
+    checkSession();
+  }, []);
 
   const handleGymSelection = () => {
     navigation.navigate('GymSelection', {
@@ -40,8 +59,6 @@ export default function SessionInviteScreen({ navigation, route }) {
         Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06',
         Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12'
       };
-      // Input format: "Wed Apr 26 2025"
-      // Output format: "2025-04-26"
       return `${parts[3]}-${months[parts[1]]}-${parts[2].padStart(2, '0')}`;
     } catch (error) {
       console.error('Date formatting error:', error);
@@ -55,13 +72,23 @@ export default function SessionInviteScreen({ navigation, route }) {
       return;
     }
 
+    if (!partnerId) {
+      console.error('No partnerId available');
+      Alert.alert('Error', 'Cannot send invite: missing partner information');
+      return;
+    }
+
     try {
       setLoading(true);
       
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        Alert.alert('Error', 'Please login to send invites');
-        return;
+      // First refresh the session
+      const { data: { session }, error: sessionError } = await supabase.auth.refreshSession();
+      if (sessionError) {
+        throw new Error('Session invalid. Please login again.');
+      }
+
+      if (!session?.user) {
+        throw new Error('No authenticated user');
       }
 
       const formattedDate = formatDateForDatabase(selectedDateTime.date);
@@ -69,36 +96,89 @@ export default function SessionInviteScreen({ navigation, route }) {
         throw new Error('Invalid date format');
       }
 
+      // Determine time slot based on the hour
+      const hour = parseInt(selectedDateTime.time.split(':')[0]);
+      let timeSlot = 'morning';
+      if (hour >= 12 && hour < 17) {
+        timeSlot = 'afternoon';
+      } else if (hour >= 17) {
+        timeSlot = 'evening';
+      }
+
+      // Convert time to proper format (HH:MM:00)
+      const formattedTime = selectedDateTime.time + ':00';
+
+      console.log('Creating invite with partnerId:', partnerId);
+
       const newInvite = {
-        sender_id: user.id,
+        sender_id: session.user.id,
         receiver_id: partnerId,
         gym_id: selectedGym.id,
         booking_date: formattedDate,
-        time: selectedDateTime.time,
+        specific_time: formattedTime,
+        time_slot: timeSlot,
         status: 'pending',
-        notes: `Training session with ${partnerName} at ${selectedGym.name}`,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        notes: `Training session with ${partnerName} at ${selectedGym.name}`
       };
 
-      console.log('Sending booking invite:', newInvite); // For debugging
+      console.log('Sending booking invite:', newInvite);
+      console.log('Current user ID:', session.user.id);
 
       const { data, error } = await supabase
         .from('booking_invites')
         .insert([newInvite])
-        .select()
-        .single();
+        .select();
 
       if (error) {
-        console.error('Database error:', error);
+        console.error('Database error details:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          insert_data: newInvite
+        });
+
+        // Get current auth status for debugging
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        console.log('Current auth session:', {
+          hasSession: !!currentSession,
+          userId: currentSession?.user?.id,
+          role: currentSession?.user?.role
+        });
+
         throw error;
       }
 
-      console.log('Successfully created invite:', data); // For debugging
+      // Verify the insert by trying to fetch it
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('booking_invites')
+        .select('*')
+        .eq('sender_id', session.user.id)
+        .eq('receiver_id', partnerId)
+        .eq('booking_date', formattedDate)
+        .single();
+
+      if (verifyError) {
+        console.error('Verification error:', verifyError);
+        throw new Error('Insert succeeded but verification failed');
+      }
+
+      console.log('Successfully verified invite:', verifyData);
+      
+      // Navigate to success screen
       navigation.navigate('SessionInviteSuccess');
+      
+      // Reset navigation to main screen after a delay
+      setTimeout(() => {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'MainTab' }],
+        });
+      }, 2000);
+
     } catch (error) {
       console.error('Error sending invite:', error);
-      Alert.alert('Error', `Failed to send invite: ${error.message}`);
+      Alert.alert('Error', 'Failed to send invite: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -115,7 +195,7 @@ export default function SessionInviteScreen({ navigation, route }) {
 
       <View style={styles.content}>
         <View style={styles.userInfo}>
-          <Text style={styles.userName}>Training with {partnerName}</Text>
+          <Text style={styles.userName}>Training with {partnerName || 'Partner'}</Text>
         </View>
 
         <TouchableOpacity
