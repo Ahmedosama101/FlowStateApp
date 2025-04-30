@@ -14,61 +14,81 @@ export default function BookingInvitesTab() {
   }, []);
 
   const setupRealtimeSubscription = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    const subscription = supabase
-      .channel('booking_invites_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'booking_invites',
-          filter: `receiver_id=eq.${user.id}`
-        },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            loadReceivedInvites();
-          } else if (payload.eventType === 'UPDATE') {
-            setReceivedInvites(current =>
-              current.map(invite =>
-                invite.id === payload.new.id ? { ...invite, ...payload.new } : invite
-              )
-            );
+      // The user's auth ID is their profile ID
+      const profileId = user.id;
+
+      const subscription = supabase
+        .channel('booking_invites_changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'booking_invites',
+            filter: `receiver_id=eq.${profileId}`
+          },
+          (payload) => {
+            if (payload.eventType === 'INSERT') {
+              loadReceivedInvites();
+            } else if (payload.eventType === 'UPDATE') {
+              setReceivedInvites(current =>
+                current.map(invite =>
+                  invite.id === payload.new.id ? { ...invite, ...payload.new } : invite
+                )
+              );
+            }
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe();
 
-    return () => {
-      subscription.unsubscribe();
-    };
+      return () => {
+        subscription.unsubscribe();
+      };
+    } catch (error) {
+      console.error('Error setting up realtime subscription:', error);
+    }
   };
 
   const loadReceivedInvites = async () => {
     try {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        console.log('No user found');
+        return;
+      }
+
+      console.log('Loading invites for user:', user.id);
 
       const { data, error } = await supabase
         .from('booking_invites')
         .select(`
-          *,
+          id,
+          status,
+          booking_date,
+          specific_time,
+          time_slot,
           sender:profiles!booking_invites_sender_id_fkey (
-            id,
-            full_name,
-            profile_images (
-              image_url,
-              is_primary
-            )
+            full_name
+          ),
+          gyms (
+            name,
+            address
           )
         `)
         .eq('receiver_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Booking invites error:', error);
+        throw error;
+      }
+
+      console.log('Received invites:', data);
       setReceivedInvites(data || []);
     } catch (error) {
       console.error('Error loading received invites:', error.message);
@@ -87,6 +107,9 @@ export default function BookingInvitesTab() {
         return;
       }
 
+      // In our schema, the profile id is the same as the auth user id
+      const profileId = user.id;
+
       const { error } = await supabase
         .from('booking_invites')
         .update({
@@ -94,7 +117,7 @@ export default function BookingInvitesTab() {
           updated_at: new Date().toISOString()
         })
         .eq('id', inviteId)
-        .eq('receiver_id', user.id)
+        .eq('receiver_id', profileId)
         .eq('status', 'pending');
 
       if (error) {
@@ -103,12 +126,8 @@ export default function BookingInvitesTab() {
         return;
       }
 
-      // Update local state
-      setReceivedInvites(current =>
-        current.map(invite =>
-          invite.id === inviteId ? { ...invite, status } : invite
-        )
-      );
+      // After successful update, reload the invites to get fresh data
+      loadReceivedInvites();
 
       Alert.alert(
         'Success',
@@ -122,27 +141,26 @@ export default function BookingInvitesTab() {
 
   const renderInvite = ({ item }) => (
     <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        <Text style={styles.partnerName}>{item.sender?.full_name || 'Unknown User'}</Text>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-          <Text style={styles.statusText}>
-            {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+      <Text style={styles.partnerName}>{item.sender?.full_name || 'Unknown User'}</Text>
+      
+      <View style={styles.detailsContainer}>
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>Gym:</Text>
+          <Text style={styles.detailText}>{item.gyms?.name || 'Unknown Gym'}</Text>
+        </View>
+        
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>Date:</Text>
+          <Text style={styles.detailText}>
+            {new Date(item.booking_date).toLocaleDateString()}
           </Text>
         </View>
-      </View>
 
-      <View style={styles.cardDetails}>
         <View style={styles.detailRow}>
-          <Icon name="map-marker" size={16} color="#666" />
-          <Text style={styles.detailText}>{item.gym_name}</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Icon name="calendar" size={16} color="#666" />
-          <Text style={styles.detailText}>{new Date(item.booking_date).toLocaleDateString()}</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Icon name="clock-o" size={16} color="#666" />
-          <Text style={styles.detailText}>{item.specific_time}</Text>
+          <Text style={styles.detailLabel}>Time:</Text>
+          <Text style={styles.detailText}>
+            {item.specific_time?.slice(0, 5)} ({item.time_slot})
+          </Text>
         </View>
       </View>
 
@@ -252,42 +270,33 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
   partnerName: {
     fontSize: 18,
     fontWeight: '600',
     color: '#333',
+    marginBottom: 12,
   },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  cardDetails: {
-    gap: 8,
+  detailsContainer: {
+    marginVertical: 12,
+    backgroundColor: '#f5f5f5',
+    padding: 10,
+    borderRadius: 8,
   },
   detailRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    marginBottom: 6,
+  },
+  detailLabel: {
+    fontWeight: '600',
+    width: 50,
+    color: '#666',
   },
   detailText: {
-    fontSize: 14,
-    color: '#666',
+    flex: 1,
+    color: '#333',
   },
   actionButtons: {
     flexDirection: 'row',
-    marginTop: 16,
     gap: 8,
   },
   actionButton: {
