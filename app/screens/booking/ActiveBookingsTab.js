@@ -1,46 +1,15 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Alert } from 'react-native';
 import { createStackNavigator } from '@react-navigation/stack';
 import Icon from 'react-native-vector-icons/FontAwesome';
+import { supabase } from '../../lib/supabase';
 
 const Stack = createStackNavigator();
-
-// Dummy data for active bookings
-const dummyBookings = [
-  {
-    id: '1',
-    partner: 'Alex Johnson',
-    location: 'Elite BJJ Academy',
-    date: '2025-04-20',
-    time: '10:00 AM',
-    status: 'confirmed',
-    notes: 'No-gi session',
-  },
-  {
-    id: '2',
-    partner: 'Sarah Smith',
-    location: 'Gracie Combat Center',
-    date: '2025-04-22',
-    time: '2:30 PM',
-    status: 'pending',
-    notes: 'Gi training, bring your own gi',
-  },
-  {
-    id: '3',
-    partner: 'Mike Wilson',
-    location: 'Modern Jiu-Jitsu',
-    date: '2025-04-25',
-    time: '4:00 PM',
-    status: 'cancelled',
-    notes: 'Competition prep session',
-  },
-];
 
 function BookingCard({ booking, onPress }) {
   const getStatusColor = (status) => {
     switch (status) {
-      case 'confirmed': return '#4CAF50';
-      case 'pending': return '#FFC107';
+      case 'accepted': return '#4CAF50';
       case 'cancelled': return '#F44336';
       default: return '#757575';
     }
@@ -49,7 +18,7 @@ function BookingCard({ booking, onPress }) {
   return (
     <TouchableOpacity style={styles.card} onPress={onPress}>
       <View style={styles.cardHeader}>
-        <Text style={styles.partnerName}>{booking.partner}</Text>
+        <Text style={styles.partnerName}>{booking.sender?.full_name || 'Unknown Partner'}</Text>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(booking.status) }]}>
           <Text style={styles.statusText}>{booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}</Text>
         </View>
@@ -58,15 +27,15 @@ function BookingCard({ booking, onPress }) {
       <View style={styles.cardDetails}>
         <View style={styles.detailRow}>
           <Icon name="map-marker" size={16} color="#666" />
-          <Text style={styles.detailText}>{booking.location}</Text>
+          <Text style={styles.detailText}>{booking.gyms?.name || 'Unknown Location'}</Text>
         </View>
         <View style={styles.detailRow}>
           <Icon name="calendar" size={16} color="#666" />
-          <Text style={styles.detailText}>{booking.date}</Text>
+          <Text style={styles.detailText}>{new Date(booking.booking_date).toLocaleDateString()}</Text>
         </View>
         <View style={styles.detailRow}>
           <Icon name="clock-o" size={16} color="#666" />
-          <Text style={styles.detailText}>{booking.time}</Text>
+          <Text style={styles.detailText}>{booking.specific_time?.slice(0, 5)} ({booking.time_slot})</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -76,10 +45,21 @@ function BookingCard({ booking, onPress }) {
 function BookingDetailScreen({ route, navigation }) {
   const { booking } = route.params;
 
-  const handleCancel = () => {
-    // Add cancellation logic here
-    alert('Booking cancelled successfully');
-    navigation.goBack();
+  const handleCancel = async () => {
+    try {
+      const { error } = await supabase
+        .from('booking_invites')
+        .update({ status: 'cancelled' })
+        .eq('id', booking.id);
+
+      if (error) throw error;
+
+      Alert.alert('Success', 'Booking cancelled successfully');
+      navigation.goBack();
+    } catch (error) {
+      console.error('Error cancelling booking:', error);
+      Alert.alert('Error', 'Failed to cancel booking');
+    }
   };
 
   return (
@@ -96,34 +76,24 @@ function BookingDetailScreen({ route, navigation }) {
       <View style={styles.detailContent}>
         <View style={styles.detailSection}>
           <Text style={styles.sectionTitle}>Partner</Text>
-          <Text style={styles.sectionContent}>{booking.partner}</Text>
+          <Text style={styles.sectionContent}>{booking.sender?.full_name}</Text>
         </View>
 
         <View style={styles.detailSection}>
           <Text style={styles.sectionTitle}>Location</Text>
-          <Text style={styles.sectionContent}>{booking.location}</Text>
+          <Text style={styles.sectionContent}>{booking.gyms?.name}</Text>
         </View>
 
         <View style={styles.detailSection}>
           <Text style={styles.sectionTitle}>Date & Time</Text>
-          <Text style={styles.sectionContent}>{booking.date} at {booking.time}</Text>
+          <Text style={styles.sectionContent}>
+            {new Date(booking.booking_date).toLocaleDateString()} at {booking.specific_time?.slice(0, 5)}
+          </Text>
         </View>
 
         <View style={styles.detailSection}>
-          <Text style={styles.sectionTitle}>Status</Text>
-          <View style={[styles.statusBadge, { 
-            backgroundColor: booking.status === 'confirmed' ? '#4CAF50' : 
-                           booking.status === 'pending' ? '#FFC107' : '#F44336'
-          }]}>
-            <Text style={styles.statusText}>
-              {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.detailSection}>
-          <Text style={styles.sectionTitle}>Notes</Text>
-          <Text style={styles.sectionContent}>{booking.notes}</Text>
+          <Text style={styles.sectionTitle}>Time Slot</Text>
+          <Text style={styles.sectionContent}>{booking.time_slot}</Text>
         </View>
 
         {booking.status !== 'cancelled' && (
@@ -140,33 +110,135 @@ function BookingDetailScreen({ route, navigation }) {
 }
 
 function BookingsList({ navigation }) {
+  const [bookings, setBookings] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
+
+  const loadBookings = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('booking_invites')
+        .select(`
+          id,
+          status,
+          booking_date,
+          specific_time,
+          time_slot,
+          notes,
+          sender:sender_id (
+            email,
+            raw_user_meta_data->>'full_name'
+          ),
+          receiver:receiver_id (
+            email,
+            raw_user_meta_data->>'full_name'
+          ),
+          gyms (
+            name,
+            address
+          )
+        `)
+        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
+        .eq('status', 'accepted')
+        .order('booking_date', { ascending: true });
+
+      if (error) throw error;
+      console.log('Active bookings:', data);
+      setBookings(data || []);
+    } catch (error) {
+      console.error('Error loading bookings:', error);
+      Alert.alert('Error', 'Failed to load bookings');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    loadBookings();
+    
+    // Set up real-time subscription
+    const subscription = supabase
+      .channel('booking_changes')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'booking_invites'
+      }, () => {
+        loadBookings();
+      })
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
-    // Add your data fetching logic here
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 2000);
+    loadBookings();
   }, []);
 
-  const renderBooking = ({ item }) => (
-    <BookingCard
-      booking={item}
-      onPress={() => navigation.navigate('BookingDetail', { booking: item })}
-    />
-  );
+  const handleBookingPress = (booking) => {
+    navigation.navigate('BookingDetail', { booking });
+  };
+
+  const renderBooking = ({ item }) => {
+    const isReceiver = item.receiver_id === user?.id;
+    const partner = isReceiver ? item.sender : item.receiver;
+    const partnerName = partner?.raw_user_meta_data?.full_name || partner?.email || 'Unknown Partner';
+
+    return (
+      <TouchableOpacity style={styles.card} onPress={() => handleBookingPress(item)}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.partnerName}>{partnerName}</Text>
+          <Text style={styles.detail}>at {item.gyms?.name || 'Unknown Gym'}</Text>
+        </View>
+        
+        <View style={styles.cardDetails}>
+          <View style={styles.detailRow}>
+            <Icon name="calendar" size={16} color="#666" />
+            <Text style={styles.detailText}>
+              {new Date(item.booking_date).toLocaleDateString()}
+            </Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Icon name="clock-o" size={16} color="#666" />
+            <Text style={styles.detailText}>
+              {item.specific_time?.slice(0, 5)} ({item.time_slot})
+            </Text>
+          </View>
+          {item.notes && (
+            <View style={styles.detailRow}>
+              <Icon name="sticky-note-o" size={16} color="#666" />
+              <Text style={styles.detailText}>{item.notes}</Text>
+            </View>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
-    <FlatList
-      data={dummyBookings}
-      renderItem={renderBooking}
-      keyExtractor={(item) => item.id}
-      contentContainerStyle={styles.listContainer}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    />
+    <View style={styles.container}>
+      {bookings.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>No Active Bookings</Text>
+          <Text style={styles.emptySubtext}>Your accepted bookings will appear here</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={bookings}
+          renderItem={renderBooking}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContainer}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        />
+      )}
+    </View>
   );
 }
 
@@ -268,5 +340,33 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  container: {
+    flex: 1,
+    backgroundColor: '#F5F5F5',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  emptyText: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+  },
+  detailsContainer: {
+    marginTop: 8,
+  },
+  detailLabel: {
+    fontWeight: '600',
+    color: '#333',
+    marginRight: 4,
   },
 });

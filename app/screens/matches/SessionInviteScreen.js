@@ -118,7 +118,9 @@ export default function SessionInviteScreen({ navigation, route }) {
         specific_time: formattedTime,
         time_slot: timeSlot,
         status: 'pending',
-        notes: `Training session with ${partnerName} at ${selectedGym.name}`
+        notes: `Training session with ${partnerName} at ${selectedGym.name}`,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       };
 
       console.log('Sending booking invite:', newInvite);
@@ -127,7 +129,22 @@ export default function SessionInviteScreen({ navigation, route }) {
       const { data, error } = await supabase
         .from('booking_invites')
         .insert([newInvite])
-        .select();
+        .select(`
+          *,
+          sender:sender_id (
+            email,
+            raw_user_meta_data->>'full_name'
+          ),
+          receiver:receiver_id (
+            email,
+            raw_user_meta_data->>'full_name'
+          ),
+          gyms (
+            name,
+            address
+          )
+        `)
+        .single();
 
       if (error) {
         console.error('Database error details:', {
