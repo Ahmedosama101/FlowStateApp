@@ -105,7 +105,6 @@ export default function SessionInviteScreen({ navigation, route }) {
         timeSlot = 'evening';
       }
 
-      // Convert time to proper format (HH:MM:00)
       const formattedTime = selectedDateTime.time + ':00';
 
       console.log('Creating invite with partnerId:', partnerId);
@@ -124,27 +123,11 @@ export default function SessionInviteScreen({ navigation, route }) {
       };
 
       console.log('Sending booking invite:', newInvite);
-      console.log('Current user ID:', session.user.id);
 
-      const { data, error } = await supabase
+      // Insert the booking invite without trying to select relationships
+      const { error } = await supabase
         .from('booking_invites')
-        .insert([newInvite])
-        .select(`
-          *,
-          sender:sender_id (
-            email,
-            raw_user_meta_data->>'full_name'
-          ),
-          receiver:receiver_id (
-            email,
-            raw_user_meta_data->>'full_name'
-          ),
-          gyms (
-            name,
-            address
-          )
-        `)
-        .single();
+        .insert([newInvite]);
 
       if (error) {
         console.error('Database error details:', {
@@ -154,34 +137,9 @@ export default function SessionInviteScreen({ navigation, route }) {
           hint: error.hint,
           insert_data: newInvite
         });
-
-        // Get current auth status for debugging
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
-        console.log('Current auth session:', {
-          hasSession: !!currentSession,
-          userId: currentSession?.user?.id,
-          role: currentSession?.user?.role
-        });
-
         throw error;
       }
 
-      // Verify the insert by trying to fetch it
-      const { data: verifyData, error: verifyError } = await supabase
-        .from('booking_invites')
-        .select('*')
-        .eq('sender_id', session.user.id)
-        .eq('receiver_id', partnerId)
-        .eq('booking_date', formattedDate)
-        .single();
-
-      if (verifyError) {
-        console.error('Verification error:', verifyError);
-        throw new Error('Insert succeeded but verification failed');
-      }
-
-      console.log('Successfully verified invite:', verifyData);
-      
       // Navigate to success screen
       navigation.navigate('SessionInviteSuccess');
       
