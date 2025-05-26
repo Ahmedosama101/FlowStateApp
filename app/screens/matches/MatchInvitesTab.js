@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, ActivityIndicator, Alert, RefreshControl } from 'react-native';
 import { supabase } from '../../lib/supabase';
+import Icon from 'react-native-vector-icons/FontAwesome';
 
 const MatchInvitesTab = ({ navigation }) => {
   const [receivedRequests, setReceivedRequests] = useState([]);
@@ -52,30 +53,33 @@ const MatchInvitesTab = ({ navigation }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      console.log('Fetching received requests for user:', user.id);
+
       const { data, error } = await supabase
         .from('match_requests')
         .select(`
           *,
           requester:profiles!match_requests_requester_id_fkey (
+            id,
             full_name,
             gender,
             belt_level,
             height,
-            weight,
-            profile_images (
-              image_url,
-              is_primary
-            )
+            weight
           )
         `)
         .eq('requested_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setReceivedRequests(data);
+      if (error) {
+        console.error('Error fetching received requests:', error);
+        throw error;
+      }
+
+      console.log('Fetched received requests:', data);
+      setReceivedRequests(data || []);
     } catch (error) {
       console.error('Error loading received requests:', error.message);
-      Alert.alert('Error', 'Failed to load requests');
     } finally {
       setLoading(false);
     }
@@ -162,57 +166,88 @@ const MatchInvitesTab = ({ navigation }) => {
 
   const renderRequest = ({ item }) => (
     <View style={styles.requestCard}>
-      <Image
-        source={{ uri: getProfileImage(item.requester) }}
-        style={styles.avatar}
-      />
-      <View style={styles.requestInfo}>
-        <Text style={styles.name}>{item.requester.full_name}</Text>
-        <Text style={styles.details}>
-          {item.requester.gender} • {item.requester.belt_level} Belt
+      {/* Status indicator */}
+      <View style={styles.statusContainer}>
+        <Text style={[
+          styles.statusText, 
+          { 
+            color: getStatusStyle(item.status).color, 
+            backgroundColor: getStatusStyle(item.status).backgroundColor 
+          }
+        ]}>
+          {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
         </Text>
-        <Text style={styles.details}>
-          {item.requester.height} • {item.requester.weight}
-        </Text>
-        {item.message && (
-          <Text style={styles.message}>{item.message}</Text>
-        )}
-        {item.status === 'pending' ? (
-          <View style={styles.actionButtons}>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.acceptButton]}
-              onPress={() => handleRequestResponse(item.id, 'accepted')}
-            >
-              <Text style={styles.buttonText}>Accept</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.rejectButton]}
-              onPress={() => handleRequestResponse(item.id, 'rejected')}
-            >
-              <Text style={styles.buttonText}>Reject</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <Text style={[styles.status, { color: getStatusColor(item.status) }]}>
-            {item.status.toUpperCase()}
-          </Text>
-        )}
       </View>
+      
+      {/* Session Partner section */}
+      <View style={styles.sectionContainer}>
+        <View style={styles.sectionHeader}>
+          <Icon name="user" size={16} color="#33363F" />
+          <Text style={styles.sectionLabel}>Session Partner</Text>
+        </View>
+        <View style={styles.partnerRow}>
+          <Image
+            source={{ uri: getProfileImage(item.requester) }}
+            style={styles.avatar}
+          />
+          <Text style={styles.partnerName}>{item.requester.full_name}</Text>
+        </View>
+      </View>
+      
+      {/* Date and Time section */}
+      <View style={styles.sectionContainer}>
+        <View style={styles.sectionHeader}>
+          <Icon name="calendar-o" size={16} color="#33363F" />
+          <Text style={styles.sectionLabel}>Date & time</Text>
+        </View>
+        <Text style={styles.sectionValue}>
+          Sun, 15 Jan - 08:00 AM
+        </Text>
+      </View>
+      
+      {/* Location section */}
+      <View style={styles.sectionContainer}>
+        <View style={styles.sectionHeader}>
+          <Icon name="map-marker" size={16} color="#33363F" />
+          <Text style={styles.sectionLabel}>Location</Text>
+        </View>
+        <Text style={styles.sectionValue}>
+          {item.requester.gym_name || 'Olympic Boxing Club, Calgary'}
+        </Text>
+      </View>
+      
+      {/* Action buttons for pending requests */}
+      {item.status === 'pending' && (
+        <View style={styles.actionContainer}>
+          <TouchableOpacity
+            style={styles.declineButton}
+            onPress={() => handleRequestResponse(item.id, 'rejected')}
+          >
+            <Text style={styles.declineText}>✕ Decline</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.acceptButton}
+            onPress={() => handleRequestResponse(item.id, 'accepted')}
+          >
+            <Text style={styles.acceptText}>✓ Accept</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 
-  const getStatusColor = (status) => {
+  const getStatusStyle = (status) => {
     switch (status) {
       case 'pending':
-        return '#FFA500';
+        return { color: '#FFA500', backgroundColor: '#FFF3E0' };
       case 'accepted':
-        return '#4CAF50';
+        return { color: '#4CAF50', backgroundColor: '#E8F5E9' };
       case 'rejected':
-        return '#F44336';
+        return { color: '#F44336', backgroundColor: '#FFEBEE' };
       case 'cancelled':
-        return '#9E9E9E';
+        return { color: '#9E9E9E', backgroundColor: '#F5F5F5' };
       default:
-        return '#000000';
+        return { color: '#000000', backgroundColor: '#FFFFFF' };
     }
   };
 
@@ -255,6 +290,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5',
+    padding: 16,
   },
   loadingContainer: {
     flex: 1,
@@ -262,14 +298,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   listContent: {
-    padding: 16,
+    padding: 8,
   },
   requestCard: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -278,62 +312,81 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3,
     elevation: 3,
+    padding: 16,
+    position: 'relative',
   },
-  avatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    marginRight: 16,
+  statusContainer: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    zIndex: 1,
   },
-  requestInfo: {
-    flex: 1,
+  statusText: {
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    fontSize: 12,
+    fontWeight: '600',
   },
-  name: {
-    fontSize: 18,
-    fontFamily: 'Raleway-Bold',
-    marginBottom: 4,
-  },
-  details: {
-    fontSize: 14,
-    fontFamily: 'Raleway-Regular',
-    color: '#666',
-    marginBottom: 2,
-  },
-  message: {
-    fontSize: 14,
-    fontFamily: 'Raleway-Regular',
-    color: '#444',
-    marginTop: 8,
+  sectionContainer: {
     marginBottom: 12,
-    fontStyle: 'italic',
   },
-  actionButtons: {
+  sectionHeader: {
     flexDirection: 'row',
-    marginTop: 12,
+    alignItems: 'center',
+    marginBottom: 8,
   },
-  actionButton: {
-    flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginHorizontal: 4,
+  sectionLabel: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#333333',
+    fontWeight: '500',
+  },
+  sectionValue: {
+    fontSize: 14,
+    color: '#333333',
+  },
+  partnerRow: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 8,
+  },
+  partnerName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333333',
+  },
+  actionContainer: {
+    flexDirection: 'row',
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#EFEFEF',
+    paddingTop: 12,
+  },
+  declineButton: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
   acceptButton: {
-    backgroundColor: '#4CAF50',
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
   },
-  rejectButton: {
-    backgroundColor: '#F44336',
-  },
-  buttonText: {
-    color: '#fff',
-    fontFamily: 'Raleway-Medium',
+  declineText: {
+    color: '#D32F2F',
+    fontWeight: '500',
     fontSize: 14,
   },
-  status: {
-    marginTop: 12,
+  acceptText: {
+    color: '#2E7D32',
+    fontWeight: '500',
     fontSize: 14,
-    fontFamily: 'Raleway-Bold',
   },
   emptyContainer: {
     flex: 1,
@@ -343,12 +396,12 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 20,
-    fontFamily: 'Raleway-Bold',
+    fontWeight: '600',
+    color: '#333',
     marginBottom: 8,
   },
   emptySubtext: {
     fontSize: 16,
-    fontFamily: 'Raleway-Regular',
     color: '#666',
     textAlign: 'center',
   },

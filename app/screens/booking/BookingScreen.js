@@ -1,12 +1,9 @@
-import React from 'react';
-import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
-import { View, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import UserWelcome from '../../../components/UserWelcome';
 import ActiveBookingsTab from './ActiveBookingsTab';
 import BookingInvitesTab from './BookingInvitesTab';
 import BookingHistoryTab from './BookingHistoryTab';
-
-const Tab = createMaterialTopTabNavigator();
 
 const dummyUser = {
   name: null,
@@ -14,43 +11,64 @@ const dummyUser = {
 };
 
 export default function BookingScreen() {
+  const [selectedTab, setSelectedTab] = useState('active');
+
   return (
     <View style={styles.container}>
       <UserWelcome user={dummyUser} />
-      <Tab.Navigator
-        screenOptions={{
-          tabBarStyle: styles.tabBar,
-          tabBarLabelStyle: styles.tabLabel,
-          tabBarIndicatorStyle: styles.tabIndicator,
-          tabBarPressColor: 'transparent',
-          swipeEnabled: true,
-          animationEnabled: true,
-          tabBarActiveTintColor: '#000',
-          tabBarInactiveTintColor: '#666',
-        }}
-      >
-        <Tab.Screen 
-          name="ActiveBookings" 
-          component={ActiveBookingsTab}
-          options={{
-            tabBarLabel: 'Active'
-          }}
-        />
-        <Tab.Screen 
-          name="BookingInvites" 
-          component={BookingInvitesTab}
-          options={{
-            tabBarLabel: 'Invites'
-          }}
-        />
-        <Tab.Screen 
-          name="BookingHistory" 
-          component={BookingHistoryTab}
-          options={{
-            tabBarLabel: 'History'
-          }}
-        />
-      </Tab.Navigator>
+      
+      {/* Custom toggle tabs with original tab names */}
+      <View style={styles.toggleContainer}>
+        <TouchableOpacity 
+          style={[
+            styles.toggleButton, 
+            selectedTab === 'active' ? styles.toggleButtonActive : null
+          ]}
+          onPress={() => setSelectedTab('active')}
+        >
+          <Text style={[
+            styles.toggleText,
+            selectedTab === 'active' ? styles.toggleTextActive : null
+          ]}>Active</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[
+            styles.toggleButton, 
+            selectedTab === 'invites' ? styles.toggleButtonActive : null
+          ]}
+          onPress={() => setSelectedTab('invites')}
+        >
+          <Text style={[
+            styles.toggleText,
+            selectedTab === 'invites' ? styles.toggleTextActive : null
+          ]}>Invites</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[
+            styles.toggleButton, 
+            selectedTab === 'history' ? styles.toggleButtonActive : null
+          ]}
+          onPress={() => setSelectedTab('history')}
+        >
+          <Text style={[
+            styles.toggleText,
+            selectedTab === 'history' ? styles.toggleTextActive : null
+          ]}>History</Text>
+        </TouchableOpacity>
+      </View>
+      
+      {/* Content based on selected tab */}
+      <View style={styles.contentContainer}>
+        {selectedTab === 'active' ? (
+          <ActiveBookingsTab />
+        ) : selectedTab === 'invites' ? (
+          <BookingInvitesTab />
+        ) : (
+          <BookingHistoryTab />
+        )}
+      </View>
     </View>
   );
 }
@@ -61,20 +79,37 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     paddingTop: 35,
   },
-  tabBar: {
-    backgroundColor: '#fff',
-    elevation: 0,
-    shadowOpacity: 0,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+  toggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#F0F0F0',
+    borderRadius: 25,
+    margin: 15,
+    padding: 5,
   },
-  tabLabel: {
-    textTransform: 'none',
-    fontWeight: '600',
+  toggleButton: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: 20,
+  },
+  toggleButtonActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1,
+    elevation: 2,
+  },
+  toggleText: {
     fontSize: 14,
+    color: '#666666',
+    fontWeight: '500',
   },
-  tabIndicator: {
-    backgroundColor: '#007BFF',
-    height: 3,
+  toggleTextActive: {
+    color: '#000000',
+    fontWeight: '600',
+  },
+  contentContainer: {
+    flex: 1,
   },
 });

@@ -1,62 +1,110 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, Modal } from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/FontAwesome';
-import DateTimePicker from '@react-native-community/datetimepicker';
 
 export default function TimeSelection({ navigation, route }) {
-  const { selectedGym } = route.params;
+  const { selectedGym, onSelect } = route.params;
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDay, setSelectedDay] = useState(null);
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
   const [selectedTime, setSelectedTime] = useState(null);
-  const [showDatePicker, setShowDatePicker] = useState(false);
 
-  const getTimeSlots = useCallback(() => {
-    // In a real app, these would come from the gym's availability
-    return {
-      morning: ['07:00', '08:00', '09:00', '10:00', '11:00'],
-      afternoon: ['12:00', '13:00', '14:00', '15:00', '16:00'],
-      evening: ['17:00', '18:00', '19:00', '20:00', '21:00']
-    };
-  }, []);
-
-  const handleDateChange = (event, date) => {
-    if (Platform.OS === 'android') {
-      setShowDatePicker(false);
+  // Generate an array for the next 7 days
+  const generateWeekDays = () => {
+    const days = [];
+    const today = new Date();
+    
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() + i);
+      
+      days.push({
+        date,
+        dayNum: date.getDate(),
+        dayName: date.toLocaleDateString('en-US', { weekday: 'short' }).charAt(0),
+      });
     }
-    if (date) {
-      setSelectedDate(date);
-    }
+    
+    return days;
   };
 
+  const weekDays = generateWeekDays();
+  
+  // Initialize with the first day selected
+  useEffect(() => {
+    if (weekDays.length > 0 && !selectedDay) {
+      setSelectedDay(weekDays[1]); // Select the second day (tomorrow) by default
+    }
+  }, []);
+
+  const handleDaySelect = (day) => {
+    setSelectedDay(day);
+    setSelectedDate(day.date);
+    // Reset time selection when changing day
+    setSelectedTimeSlot(null);
+    setSelectedTime(null);
+  };
+
+  const handleTimeSlotSelect = (slot) => {
+    setSelectedTimeSlot(slot);
+    setSelectedTime(null); // Reset specific time when changing slot
+  };
+  
   const handleTimeSelect = (time) => {
     setSelectedTime(time);
-    if (route.params?.onSelect) {
-      route.params.onSelect({
-        date: selectedDate.toDateString(),
+    
+    if (onSelect && selectedDay) {
+      onSelect({
+        date: selectedDay.date.toDateString(),
         time: time
       });
     }
   };
-
-  const renderTimeSlot = (time) => (
-    <TouchableOpacity
-      key={time}
-      style={[
-        styles.timeSlot,
-        selectedTime === time && styles.selectedTimeSlot
-      ]}
-      onPress={() => handleTimeSelect(time)}
-    >
-      <Text style={[
-        styles.timeText,
-        selectedTime === time && styles.selectedTimeText
-      ]}>
-        {time}
-      </Text>
-    </TouchableOpacity>
-  );
-
-  const timeSlots = getTimeSlots();
+  
+  // Get time options based on selected slot
+  const getTimeOptions = () => {
+    if (!selectedTimeSlot) return [];
+    
+    switch (selectedTimeSlot) {
+      case 'morning':
+        return [
+          { label: '09:00 AM', value: '09:00' },
+          { label: '10:00 AM', value: '10:00' },
+          { label: '10:30 AM', value: '10:30' },
+          { label: '11:00 AM', value: '11:00' },
+          { label: '11:30 AM', value: '11:30' },
+          { label: '12:00 PM', value: '12:00' },
+        ];
+      case 'afternoon':
+        return [
+          { label: '12:30 PM', value: '12:30' },
+          { label: '13:00 PM', value: '13:00' },
+          { label: '14:00 PM', value: '14:00' },
+          { label: '15:00 PM', value: '15:00' },
+          { label: '16:00 PM', value: '16:00' },
+          { label: '17:30 PM', value: '17:30' },
+        ];
+      case 'night':
+        return [
+          { label: '18:00 PM', value: '18:00' },
+          { label: '18:30 PM', value: '18:30' },
+          { label: '19:00 PM', value: '19:00' },
+          { label: '19:30 PM', value: '19:30' },
+          { label: '20:00 PM', value: '20:00' },
+          { label: '21:00 PM', value: '21:00' },
+        ];
+      default:
+        return [];
+    }
+  };
+  
+  // Group the time options into rows of 3
+  const timeOptions = getTimeOptions();
+  const timeRows = [];
+  for (let i = 0; i < timeOptions.length; i += 3) {
+    timeRows.push(timeOptions.slice(i, i + 3));
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -67,95 +115,110 @@ export default function TimeSelection({ navigation, route }) {
         <Text style={styles.headerTitle}>Select Time</Text>
       </View>
 
-      <View style={styles.content}>
-        <View style={styles.gymHeader}>
-          <Text style={styles.gymName}>{selectedGym.name}</Text>
-          <Text style={styles.gymLocation}>{selectedGym.location}</Text>
-        </View>
-
-        <View style={styles.dateSection}>
-          <Text style={styles.sectionTitle}>Date</Text>
-          <TouchableOpacity 
-            style={styles.dateSelector}
-            onPress={() => setShowDatePicker(true)}
-          >
-            <View style={styles.dateContent}>
-              <Icon name="calendar" size={24} color="#007BFF" />
-              <View style={styles.dateTextContainer}>
-                <Text style={styles.dateText}>
-                  {selectedDate.toLocaleDateString('en-US', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  })}
-                </Text>
-              </View>
-              <Icon name="chevron-right" size={16} color="#666" />
+      <ScrollView style={styles.content}>
+        <View style={styles.calendarCard}>
+          <Text style={styles.calendarTitle}>When do you plan on going?</Text>
+          
+          <View style={styles.weekContainer}>
+            <TouchableOpacity style={styles.arrowButton}>
+              <Icon name="chevron-left" size={16} color="#ccc" />
+            </TouchableOpacity>
+            
+            <View style={styles.daysContainer}>
+              {weekDays.map((day, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.dayItem,
+                    selectedDay?.dayNum === day.dayNum && styles.selectedDayItem
+                  ]}
+                  onPress={() => handleDaySelect(day)}
+                >
+                  <Text style={[
+                    styles.dayLetter,
+                    selectedDay?.dayNum === day.dayNum && styles.selectedDayText
+                  ]}>
+                    {day.dayName}
+                  </Text>
+                  <Text style={[
+                    styles.dayNumber,
+                    selectedDay?.dayNum === day.dayNum && styles.selectedDayText
+                  ]}>
+                    {day.dayNum}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.timeSection}>
-          <Text style={styles.sectionTitle}>Morning</Text>
-          <View style={styles.timeSlotsContainer}>
-            {timeSlots.morning.map(time => renderTimeSlot(time))}
+            
+            <TouchableOpacity style={styles.arrowButton}>
+              <Icon name="chevron-right" size={16} color="#333" />
+            </TouchableOpacity>
           </View>
-
-          <Text style={styles.sectionTitle}>Afternoon</Text>
-          <View style={styles.timeSlotsContainer}>
-            {timeSlots.afternoon.map(time => renderTimeSlot(time))}
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.slotsTitle}>Available slots</Text>
+          
+          <View style={styles.timeSlotRow}>
+            <TouchableOpacity 
+              style={[
+                styles.timeSlotTab, 
+                selectedTimeSlot === 'morning' && styles.selectedTimeSlotTab
+              ]}
+              onPress={() => handleTimeSlotSelect('morning')}
+            >
+              <Icon name="sun-o" size={16} color={selectedTimeSlot === 'morning' ? "#FF9500" : "#FF9500"} style={styles.slotIcon} />
+              <Text style={styles.timeSlotText}>Morning</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[
+                styles.timeSlotTab, 
+                selectedTimeSlot === 'afternoon' && styles.selectedTimeSlotTab
+              ]}
+              onPress={() => handleTimeSlotSelect('afternoon')}
+            >
+              <Icon name="sun-o" size={16} color={selectedTimeSlot === 'afternoon' ? "#FF9500" : "#FF9500"} style={styles.slotIcon} />
+              <Text style={styles.timeSlotText}>Afternoon</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[
+                styles.timeSlotTab, 
+                selectedTimeSlot === 'night' && styles.selectedTimeSlotTabNight
+              ]}
+              onPress={() => handleTimeSlotSelect('night')}
+            >
+              <Icon name="moon-o" size={16} color={selectedTimeSlot === 'night' ? "#FFFFFF" : "#00008B"} style={styles.slotIcon} />
+              <Text style={[
+                styles.timeSlotText,
+                selectedTimeSlot === 'night' && styles.selectedNightText
+              ]}>Night</Text>
+            </TouchableOpacity>
           </View>
-
-          <Text style={styles.sectionTitle}>Evening</Text>
-          <View style={styles.timeSlotsContainer}>
-            {timeSlots.evening.map(time => renderTimeSlot(time))}
-          </View>
-        </View>
-      </View>
-
-      {showDatePicker && (
-        Platform.OS === 'ios' ? (
-          <Modal
-            visible={showDatePicker}
-            transparent={true}
-            animationType="slide"
-          >
-            <View style={styles.modalContainer}>
-              <View style={styles.modalContent}>
-                <View style={styles.pickerHeader}>
-                  <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                    <Text style={styles.cancelButton}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    onPress={() => {
-                      setShowDatePicker(false);
-                    }}
-                  >
-                    <Text style={styles.doneButton}>Done</Text>
-                  </TouchableOpacity>
+          
+          {selectedTimeSlot && (
+            <View style={styles.timesContainer}>
+              {timeRows.map((row, rowIndex) => (
+                <View key={rowIndex} style={styles.timeRow}>
+                  {row.map((time, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={[
+                        styles.timeButton,
+                        selectedTime === time.value && styles.selectedTimeButton
+                      ]}
+                      onPress={() => handleTimeSelect(time.value)}
+                    >
+                      <Text style={styles.timeButtonText}>{time.label}</Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
-                <DateTimePicker
-                  value={selectedDate}
-                  mode="date"
-                  display="spinner"
-                  onChange={handleDateChange}
-                  minimumDate={new Date()}
-                  style={styles.datePicker}
-                />
-              </View>
+              ))}
             </View>
-          </Modal>
-        ) : (
-          <DateTimePicker
-            value={selectedDate}
-            mode="date"
-            display="default"
-            onChange={handleDateChange}
-            minimumDate={new Date()}
-          />
-        )
-      )}
+          )}
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -169,8 +232,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
   },
   backButton: {
     padding: 8,
@@ -184,105 +245,130 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
   },
-  gymHeader: {
-    marginBottom: 24,
+  calendarCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  gymName: {
-    fontSize: 24,
-    fontFamily: 'Raleway-Bold',
-    marginBottom: 4,
-  },
-  gymLocation: {
-    fontSize: 16,
-    fontFamily: 'Raleway-Regular',
-    color: '#666',
-  },
-  sectionTitle: {
+  calendarTitle: {
     fontSize: 18,
     fontFamily: 'Raleway-Bold',
+    color: '#0F172A',
     marginBottom: 16,
   },
-  dateSection: {
-    marginBottom: 24,
-  },
-  dateSelector: {
-    backgroundColor: '#F8F9FA',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  dateContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  dateTextContainer: {
-    flex: 1,
-    marginHorizontal: 12,
-  },
-  dateText: {
-    fontSize: 16,
-    fontFamily: 'Raleway-Medium',
-  },
-  timeSection: {
-    flex: 1,
-  },
-  timeSlotsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 24,
-  },
-  timeSlot: {
-    backgroundColor: '#F8F9FA',
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginRight: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  selectedTimeSlot: {
-    backgroundColor: '#F0F9FF',
-    borderColor: '#007BFF',
-  },
-  timeText: {
-    fontSize: 14,
-    fontFamily: 'Raleway-Medium',
-    color: '#333',
-  },
-  selectedTimeText: {
-    color: '#007BFF',
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
-  },
-  pickerHeader: {
+  weekContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    marginBottom: 16,
   },
-  cancelButton: {
+  arrowButton: {
+    padding: 8,
+  },
+  daysContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    flex: 1,
+  },
+  dayItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginHorizontal: 4,
+  },
+  selectedDayItem: {
+    backgroundColor: '#1E3A8A',
+  },
+  dayLetter: {
+    fontSize: 12,
     color: '#666',
-    fontSize: 16,
     fontFamily: 'Raleway-Medium',
   },
-  doneButton: {
-    color: '#007BFF',
-    fontSize: 16,
+  dayNumber: {
+    fontSize: 14,
+    color: '#333',
     fontFamily: 'Raleway-Bold',
   },
-  datePicker: {
-    height: 200,
+  selectedDayText: {
+    color: '#fff',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginVertical: 16,
+  },
+  slotsTitle: {
+    fontSize: 16,
+    fontFamily: 'Raleway-Bold',
+    color: '#0F172A',
+    marginBottom: 12,
+  },
+  timeSlotRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  timeSlotTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    flex: 1,
+    marginHorizontal: 4,
+    justifyContent: 'center',
+  },
+  selectedTimeSlotTab: {
+    backgroundColor: '#FEF3E7',
+    borderWidth: 1,
+    borderColor: '#FF9500',
+  },
+  selectedTimeSlotTabNight: {
+    backgroundColor: '#1E3A8A',
+  },
+  slotIcon: {
+    marginRight: 6,
+  },
+  timeSlotText: {
+    fontFamily: 'Raleway-Medium',
+    fontSize: 14,
+    color: '#333',
+  },
+  selectedNightText: {
+    color: '#FFFFFF',
+  },
+  timesContainer: {
+    marginTop: 16,
+  },
+  timeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  timeButton: {
+    backgroundColor: '#F9FAFB',
+    padding: 12,
+    borderRadius: 8,
+    flex: 1,
+    marginHorizontal: 4,
+    alignItems: 'center',
+  },
+  selectedTimeButton: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#1E3A8A',
+  },
+  timeButtonText: {
+    fontFamily: 'Raleway-Medium',
+    fontSize: 14,
+    color: '#333',
   },
 });

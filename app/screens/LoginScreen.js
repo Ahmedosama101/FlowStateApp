@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { Alert, Image, View, Text, StyleSheet, TextInput, SafeAreaView, TouchableOpacity } from 'react-native';
+import { Alert, Image, View, Text, StyleSheet, TextInput, SafeAreaView, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
 import { supabase } from '../lib/supabase';  // Fixed import path
@@ -116,78 +116,102 @@ export default function LoginScreen({navigation}) {
   SplashScreen.hideAsync();
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.welcomeText}>Welcome Back</Text>
-        <Text style={styles.descriptionText}>
-          Login to continue your journey in finding the perfect training partner.
-        </Text>
-
-        {/* Input section */}
-        <View style={{ marginHorizontal: 25 }}>
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="example@example.com"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              editable={!loading}
-            />
-          </View>
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="********"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              editable={!loading}
-            />
-          </View>
-          <TouchableOpacity style={styles.forgotPasswordButton}>
-            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-          </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity 
-          style={[styles.loginButton, loading && styles.buttonDisabled]} 
-          onPress={handleLogin}
-          disabled={loading}
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.keyboardAvoidingView}
+      >
+        <ScrollView 
+          contentContainerStyle={styles.scrollContainer}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.loginButtonText}>{loading ? 'Logging in...' : 'Log In'}</Text>
-        </TouchableOpacity>
+          <View style={styles.content}>
+            <Text style={styles.welcomeText}>Welcome Back</Text>
+            <Text style={styles.descriptionText}>
+              Login to continue your journey in finding the perfect training partner.
+            </Text>
 
-        <Text style={styles.orText}>or sign up with</Text>
+            {/* Input section */}
+            <View style={{ marginHorizontal: 25 }}>
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Email</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="example@example.com"
+                  value={email}
+                  onChangeText={setEmail}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  editable={!loading}
+                />
+              </View>
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Password</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="********"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                  editable={!loading}
+                />
+              </View>
+              <TouchableOpacity style={styles.forgotPasswordButton}>
+                <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+              </TouchableOpacity>
+            </View>
 
-        <View style={styles.socialButtonsContainer}>
-          <TouchableOpacity style={styles.socialButton}>
-            <Image style={{color:'white'}} source={require('../assets/Gmail.png')} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.socialButton}>
-            <Image style={{ bord:'white'}} source={require('../assets/Facebook.png')} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.socialButton}>
-            <Image style={{color:'white'}} source={require('../assets/Mark.png')} />
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity 
+              style={[styles.loginButton, loading && styles.buttonDisabled]} 
+              onPress={handleLogin}
+              disabled={loading}
+            >
+              <Text style={styles.loginButtonText}>{loading ? 'Logging in...' : 'Log In'}</Text>
+            </TouchableOpacity>
 
-        <View style={styles.signUpContainer}>
-          <Text style={styles.noAccountText}>Don't have an account?</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
-            <Text style={styles.signUpText}>Sign Up</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+            <Text style={styles.orText}>or sign up with</Text>
+
+            <View style={styles.socialButtonsContainer}>
+              <TouchableOpacity style={styles.socialButton}>
+                <Image style={{color:'white'}} source={require('../assets/Gmail.png')} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.socialButton}>
+                <Image style={{ bord:'white'}} source={require('../assets/Facebook.png')} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.socialButton}>
+                <Image style={{color:'white'}} source={require('../assets/Mark.png')} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.signUpContainer}>
+              <Text style={styles.noAccountText}>Don't have an account?</Text>
+              <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
+                <Text style={styles.signUpText}>Sign Up</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
       <StatusBar style="auto" />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
+  scrollContainer: {
+    flexGrow: 1,
+    paddingHorizontal: 20,
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
   container: {
     flex: 1,
     backgroundColor: '#fff',

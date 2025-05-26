@@ -51,6 +51,8 @@ export default function RequestsTab() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      console.log('Fetching sent requests for user:', user.id);
+
       const { data, error } = await supabase
         .from('match_requests')
         .select(`
@@ -61,17 +63,18 @@ export default function RequestsTab() {
             gender,
             belt_level,
             height,
-            weight,
-            profile_images (
-              image_url,
-              is_primary
-            )
+            weight
           )
         `)
         .eq('requester_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching sent requests:', error);
+        throw error;
+      }
+
+      console.log('Fetched sent requests:', data);
       setSentRequests(data || []);
     } catch (error) {
       console.error('Error loading sent requests:', error.message);

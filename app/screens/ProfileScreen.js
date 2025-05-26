@@ -48,6 +48,7 @@ export default function ProfileScreen({ navigation }) {
         if (error) throw error;
         if (data) {
           setUserData({
+            id: user.id, // Add the user ID so it's available in EditProfileScreen
             fullName: data.full_name || '',
             email: user.email,
             phone_number: user.user_metadata.phone_number || '',
@@ -55,6 +56,8 @@ export default function ProfileScreen({ navigation }) {
             gender: data.gender,
             weight: data.weight,
             height: data.height,
+            // Include age as a calculated property
+            age: calculateAge(data.date_of_birth).replace(' years', '')
           });
           
           // Set address data if it exists
@@ -93,9 +96,11 @@ export default function ProfileScreen({ navigation }) {
 
   const handleLogout = async () => {
     try {
+      console.log('Attempting to log out...'); // Debug log
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
 
+      console.log('Logout successful. Redirecting to Auth screen...'); // Debug log
       // Reset navigation state and redirect to Login
       navigation.dispatch(
         CommonActions.reset({
@@ -104,7 +109,11 @@ export default function ProfileScreen({ navigation }) {
         })
       );
     } catch (error) {
+      console.error('Error during logout:', error.message); // Debug log
       Alert.alert('Error', error.message);
+    } finally {
+      // Ensure UI is not stuck
+      console.log('Logout process completed.');
     }
   };
 
@@ -114,7 +123,7 @@ export default function ProfileScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView>
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.header}>
           <Text style={styles.title}>Profile</Text>
           <TouchableOpacity 
@@ -183,6 +192,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
+  scrollContainer: {
+    paddingBottom: 100, // Add extra padding at the bottom
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -247,7 +259,7 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     padding: 15,
     marginHorizontal: 20,
-    marginVertical: 20,
+    marginVertical: 30, // Increased from 20 to 30
     alignItems: 'center',
   },
   logoutButtonText: {

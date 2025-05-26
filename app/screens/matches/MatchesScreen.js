@@ -1,12 +1,9 @@
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
+import React, { useState } from 'react';
+import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import UserWelcome from '../../../components/UserWelcome';
 import MatchesTabNavigator from './MatchesTabNavigator';
 import MatchInvitesTab from './MatchInvitesTab';
 import RequestsTab from './RequestsTab';
-
-const Tab = createMaterialTopTabNavigator();
 
 const dummyUser = {
   name: null,
@@ -14,43 +11,64 @@ const dummyUser = {
 };
 
 const MatchesScreen = () => {
+  const [selectedTab, setSelectedTab] = useState('matches');
+
   return (
     <View style={styles.container}>
       <UserWelcome user={dummyUser} />
-      <Tab.Navigator
-        screenOptions={{
-          tabBarStyle: styles.tabBar,
-          tabBarLabelStyle: styles.tabLabel,
-          tabBarIndicatorStyle: styles.tabIndicator,
-          tabBarPressColor: 'transparent',
-          swipeEnabled: true,
-          animationEnabled: true,
-          tabBarActiveTintColor: '#000',
-          tabBarInactiveTintColor: '#666',
-        }}
-      >
-        <Tab.Screen 
-          name="MatchesList" 
-          component={MatchesTabNavigator}
-          options={{
-            tabBarLabel: 'Matches'
-          }}
-        />
-        <Tab.Screen 
-          name="MatchInvites" 
-          component={MatchInvitesTab}
-          options={{
-            tabBarLabel: 'Invites'
-          }}
-        />
-        <Tab.Screen 
-          name="SentRequests" 
-          component={RequestsTab}
-          options={{
-            tabBarLabel: 'Requests'
-          }}
-        />
-      </Tab.Navigator>
+      
+      {/* Custom toggle tabs with original tab names */}
+      <View style={styles.toggleContainer}>
+        <TouchableOpacity 
+          style={[
+            styles.toggleButton, 
+            selectedTab === 'matches' ? styles.toggleButtonActive : null
+          ]}
+          onPress={() => setSelectedTab('matches')}
+        >
+          <Text style={[
+            styles.toggleText,
+            selectedTab === 'matches' ? styles.toggleTextActive : null
+          ]}>Matches</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[
+            styles.toggleButton, 
+            selectedTab === 'invites' ? styles.toggleButtonActive : null
+          ]}
+          onPress={() => setSelectedTab('invites')}
+        >
+          <Text style={[
+            styles.toggleText,
+            selectedTab === 'invites' ? styles.toggleTextActive : null
+          ]}>Invites</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[
+            styles.toggleButton, 
+            selectedTab === 'requests' ? styles.toggleButtonActive : null
+          ]}
+          onPress={() => setSelectedTab('requests')}
+        >
+          <Text style={[
+            styles.toggleText,
+            selectedTab === 'requests' ? styles.toggleTextActive : null
+          ]}>Requests</Text>
+        </TouchableOpacity>
+      </View>
+      
+      {/* Content based on selected tab */}
+      <View style={styles.contentContainer}>
+        {selectedTab === 'matches' ? (
+          <MatchesTabNavigator />
+        ) : selectedTab === 'invites' ? (
+          <MatchInvitesTab />
+        ) : (
+          <RequestsTab />
+        )}
+      </View>
     </View>
   );
 };
@@ -61,21 +79,38 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     paddingTop: 35,
   },
-  tabBar: {
-    backgroundColor: '#fff',
-    elevation: 0,
-    shadowOpacity: 0,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+  toggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#F0F0F0',
+    borderRadius: 25,
+    margin: 15,
+    padding: 5,
   },
-  tabLabel: {
-    textTransform: 'none',
-    fontWeight: '600',
+  toggleButton: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: 20,
+  },
+  toggleButtonActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1,
+    elevation: 2,
+  },
+  toggleText: {
     fontSize: 14,
+    color: '#666666',
+    fontWeight: '500',
   },
-  tabIndicator: {
-    backgroundColor: '#007BFF',
-    height: 3,
+  toggleTextActive: {
+    color: '#000000',
+    fontWeight: '600',
+  },
+  contentContainer: {
+    flex: 1,
   },
 });
 

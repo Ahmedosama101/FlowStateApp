@@ -18,4 +18,19 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   }
 });
 
+const testSupabaseConnection = async () => {
+  try {
+    const { data, error } = await supabase.from('profiles').select('*').limit(1);
+    if (error) {
+      console.error('Supabase connection test failed:', error);
+    } else {
+      console.log('Supabase connection test succeeded. Sample data:', data);
+    }
+  } catch (err) {
+    console.error('Unexpected error during Supabase connection test:', err);
+  }
+};
+
+testSupabaseConnection();
+
 export default supabase;

@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, ToastAndroid, Platform, Button } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, ToastAndroid, Platform, Image } from 'react-native';
 import { supabase } from '../../lib/supabase';
+import Icon from 'react-native-vector-icons/FontAwesome';
 
 export default function BookingInvitesTab() {
   const [invites, setInvites] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [debugInfo, setDebugInfo] = useState({});
 
   const showToast = (message) => {
     if (Platform.OS === 'android') {
@@ -220,83 +220,17 @@ export default function BookingInvitesTab() {
     }
   };
 
-  // Advanced debugging function
-  const debugDatabase = async () => {
-    try {
-      setLoading(true);
-      const debug = {};
-      
-      // 1. Check authentication status
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      debug.auth = { user: user ? { id: user.id, email: user.email } : null, error: authError };
-      
-      if (!user) {
-        setDebugInfo(debug);
-        Alert.alert("Debug Info", "Not authenticated! See console for details.");
-        console.log("DEBUG AUTH:", debug.auth);
-        setLoading(false);
-        return;
-      }
-      
-      // 2. Check all booking invites (not filtered)
-      const { data: allInvites, error: allInvitesError } = await supabase
-        .from('booking_invites')
-        .select('*')
-        .limit(100);
-      
-      debug.allInvites = { count: allInvites?.length || 0, error: allInvitesError, sample: allInvites?.slice(0, 3) };
-      
-      // 3. Check pending invites for current user
-      const { data: pendingInvites, error: pendingError } = await supabase
-        .from('booking_invites')
-        .select('*')
-        .eq('receiver_id', user.id)
-        .eq('status', 'pending');
-      
-      debug.pendingInvites = { count: pendingInvites?.length || 0, error: pendingError, data: pendingInvites };
-      
-      // 4. Check RLS policies by attempting to read another user's invites
-      const { data: otherUserData, error: otherUserError } = await supabase
-        .from('booking_invites')
-        .select('*')
-        .neq('receiver_id', user.id)
-        .limit(1);
-      
-      debug.rlsCheck = { success: !otherUserError && otherUserData, error: otherUserError };
-      
-      // 5. Check if gyms data is accessible
-      const { data: gymsData, error: gymsError } = await supabase
-        .from('gyms')
-        .select('*')
-        .limit(3);
-      
-      debug.gyms = { count: gymsData?.length || 0, error: gymsError, sample: gymsData };
-      
-      // 6. Check if profiles data is accessible
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, email, full_name')
-        .limit(3);
-      
-      debug.profiles = { count: profilesData?.length || 0, error: profilesError };
-      
-      setDebugInfo(debug);
-      console.log("COMPLETE DEBUG INFO:", JSON.stringify(debug, null, 2));
-      Alert.alert(
-        "Debug Results", 
-        `Auth: ${user ? 'OK' : 'FAIL'}\n` +
-        `All Invites: ${debug.allInvites.count}\n` +
-        `Your Pending: ${debug.pendingInvites.count}\n` + 
-        `RLS Check: ${debug.rlsCheck.success ? 'PASS' : 'RESTRICTED'}\n` +
-        `Gyms: ${debug.gyms.count}\n` +
-        `Profiles: ${debug.profiles.count}\n\n` +
-        `See console for complete data`
-      );
-    } catch (error) {
-      console.error("Debug error:", error);
-      Alert.alert("Debug Error", error.message);
-    } finally {
-      setLoading(false);
+  const getStatusStyle = (status) => {
+    switch (status) {
+      case 'pending':
+        return { color: '#F3AA18', backgroundColor: '#FFF8E7' };
+      case 'accepted':
+        return { color: '#4CAF50', backgroundColor: '#E8F5E9' };
+      case 'rejected':
+      case 'cancelled':
+        return { color: '#E53935', backgroundColor: '#FFEBEE' };
+      default:
+        return { color: '#757575', backgroundColor: '#F5F5F5' };
     }
   };
 
@@ -310,51 +244,73 @@ export default function BookingInvitesTab() {
 
   return (
     <View style={styles.container}>
-      <Button 
-        title="Debug Database" 
-        onPress={debugDatabase} 
-        color="#007bff"
-      />
-      
       <FlatList
         data={invites}
         keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) => (
           <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.senderName}>{item.sender.full_name || item.sender.email}</Text>
-              <Text style={styles.dateText}>{new Date(item.booking_date).toLocaleDateString()}</Text>
+            {/* Status tag */}
+            <View style={styles.statusContainer}>
+              <Text style={[
+                styles.statusText, 
+                { color: getStatusStyle('pending').color, backgroundColor: getStatusStyle('pending').backgroundColor }
+              ]}>Pending</Text>
             </View>
             
-            <View style={styles.detailsContainer}>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Location:</Text>
-                <Text style={styles.detailText}>{item.gyms?.name || 'N/A'}</Text>
+            {/* Partner section */}
+            <View style={styles.sectionContainer}>
+              <View style={styles.sectionHeader}>
+                <Icon name="user" size={16} color="#33363F" />
+                <Text style={styles.sectionLabel}>Session Partner</Text>
               </View>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Time:</Text>
-                <Text style={styles.detailText}>{item.specific_time?.slice(0, 5)} ({item.time_slot})</Text>
+              <View style={styles.partnerRow}>
+                <Image
+                  source={{ uri: item.sender.profile_image_url || 'https://via.placeholder.com/100' }}
+                  style={styles.avatar}
+                />
+                <Text style={styles.partnerName}>{item.sender.full_name || item.sender.email}</Text>
               </View>
-              {item.notes && (
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Notes:</Text>
-                  <Text style={styles.detailText}>{item.notes}</Text>
-                </View>
-              )}
             </View>
-
-            <View style={styles.buttons}>
-              <TouchableOpacity
-                style={[styles.button, styles.acceptButton]}
-                onPress={() => handleResponse(item.id, 'accepted')}
-              >
-                <Text style={styles.buttonText}>Accept</Text>
-              </TouchableOpacity>
+            
+            {/* Date and time section */}
+            <View style={styles.sectionContainer}>
+              <View style={styles.sectionHeader}>
+                <Icon name="calendar-o" size={16} color="#33363F" />
+                <Text style={styles.sectionLabel}>Date & time</Text>
+              </View>
+              <Text style={styles.sectionValue}>
+                {new Date(item.booking_date).toLocaleDateString('en-US', { 
+                  weekday: 'short',
+                  day: '2-digit',
+                  month: 'short'
+                })} - {item.specific_time?.slice(0, 5)} {item.time_slot && `(${item.time_slot})`}
+              </Text>
+            </View>
+            
+            {/* Location section */}
+            <View style={styles.sectionContainer}>
+              <View style={styles.sectionHeader}>
+                <Icon name="map-marker" size={16} color="#33363F" />
+                <Text style={styles.sectionLabel}>Location</Text>
+              </View>
+              <Text style={styles.sectionValue}>
+                {item.gyms?.name || 'Unknown Location'}
+              </Text>
+            </View>
+            
+            {/* Action buttons */}
+            <View style={styles.buttonContainer}>
               <TouchableOpacity
                 style={[styles.button, styles.rejectButton]}
                 onPress={() => handleResponse(item.id, 'rejected')}
               >
-                <Text style={styles.buttonText}>Reject</Text>
+                <Text style={styles.rejectText}>✕ Decline</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.button, styles.acceptButton]}
+                onPress={() => handleResponse(item.id, 'accepted')}
+              >
+                <Text style={styles.acceptText}>✓ Accept</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -362,7 +318,7 @@ export default function BookingInvitesTab() {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>No pending invites</Text>
-            <Text style={styles.detailText}>Try the Debug button above to check database connectivity</Text>
+            <Text style={styles.detailText}>When you receive training invites, they will appear here</Text>
           </View>
         }
       />
@@ -374,79 +330,109 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: '#F5F5F5',
   },
   card: {
-    padding: 16,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    padding: 16,
+    position: 'relative',
+    overflow: 'hidden',
   },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
+  statusContainer: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    zIndex: 1,
   },
-  senderName: {
-    fontSize: 18,
+  statusText: {
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    fontSize: 12,
     fontWeight: '600',
-    color: '#333',
+    overflow: 'hidden',
   },
-  dateText: {
-    fontSize: 14,
-    color: '#666',
+  sectionContainer: {
+    marginBottom: 12,
   },
-  detailsContainer: {
-    marginBottom: 16,
-  },
-  detailRow: {
+  sectionHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 8,
   },
-  detailLabel: {
+  sectionLabel: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#333333',
+    fontWeight: '500',
+  },
+  sectionValue: {
+    fontSize: 14,
+    color: '#333333',
+  },
+  partnerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 8,
+  },
+  partnerName: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#666',
-    width: 70,
+    color: '#333333',
   },
-  detailText: {
-    fontSize: 14,
-    color: '#333',
-    flex: 1,
-  },
-  buttons: {
+  buttonContainer: {
     flexDirection: 'row',
-    gap: 8,
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#EFEFEF',
+    paddingTop: 12,
   },
   button: {
     flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center'
+    paddingVertical: 12,
+    alignItems: 'center',
   },
   acceptButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#FFFFFF',
   },
   rejectButton: {
-    backgroundColor: '#F44336',
+    backgroundColor: '#FFFFFF',
   },
-  buttonText: {
-    color: '#fff',
+  acceptText: {
+    color: '#2E7D32',
+    fontWeight: '500',
     fontSize: 14,
-    fontWeight: '600',
+  },
+  rejectText: {
+    color: '#D32F2F',
+    fontWeight: '500',
+    fontSize: 14,
   },
   emptyContainer: {
     alignItems: 'center',
-    padding: 16,
+    padding: 24,
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  detailText: {
+    fontSize: 14,
     color: '#666',
+    textAlign: 'center',
   },
 });

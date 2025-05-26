@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Alert, Button } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Alert, Button, Image } from 'react-native';
 import { createStackNavigator } from '@react-navigation/stack';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { supabase } from '../../lib/supabase';
@@ -7,32 +7,71 @@ import { supabase } from '../../lib/supabase';
 const Stack = createStackNavigator();
 
 function BookingCard({ booking, onPress }) {
+  const getStatusStyle = (status) => {
+    switch (status) {
+      case 'pending':
+        return { color: '#F3AA18', backgroundColor: '#FFF8E7' };
+      case 'accepted':
+        return { color: '#4CAF50', backgroundColor: '#E8F5E9' };
+      case 'rejected':
+      case 'cancelled':
+        return { color: '#E53935', backgroundColor: '#FFEBEE' };
+      default:
+        return { color: '#757575', backgroundColor: '#F5F5F5' };
+    }
+  };
+  
   return (
     <TouchableOpacity style={styles.card} onPress={onPress}>
-      <View style={styles.cardHeader}>
-        <Text style={styles.partnerName}>
-          {booking.sender?.full_name || booking.sender?.email}
+      {/* Status indicator at top-right */}
+      <View style={styles.statusContainer}>
+        <Text style={[
+          styles.statusText, 
+          { color: getStatusStyle(booking.status).color, backgroundColor: getStatusStyle(booking.status).backgroundColor }
+        ]}>
+          {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
         </Text>
       </View>
       
-      <View style={styles.detailsContainer}>
-        <View style={styles.detailRow}>
-          <Icon name="map-marker" size={16} color="#666" />
-          <Text style={styles.detailText}>{booking.gyms?.name || 'N/A'}</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Icon name="calendar" size={16} color="#666" />
-          <Text style={styles.detailText}>
-            {new Date(booking.booking_date).toLocaleDateString()}
-          </Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Icon name="clock-o" size={16} color="#666" />
-          <Text style={styles.detailText}>
-            {booking.specific_time?.slice(0, 5)} ({booking.time_slot})
-          </Text>
-        </View>
+      <View style={styles.sectionRow}>
+        <Icon name="user" size={16} color="#33363F" style={styles.sectionIcon} />
+        <Text style={styles.sectionLabel}>Session Partner</Text>
       </View>
+      <View style={styles.partnerContainer}>
+        {booking.partner?.profile_image_url ? (
+          <Image 
+            source={{ uri: booking.partner.profile_image_url }} 
+            style={styles.partnerImage}
+          />
+        ) : (
+          <View style={styles.partnerImagePlaceholder}>
+            <Text style={styles.partnerInitials}>
+              {(booking.sender?.full_name || booking.sender?.email || "U").charAt(0)}
+            </Text>
+          </View>
+        )}
+        <Text style={styles.partnerName}>
+          {booking.sender?.full_name || booking.sender?.email || "Unknown Partner"}
+        </Text>
+      </View>
+
+      <View style={styles.sectionRow}>
+        <Icon name="calendar-o" size={16} color="#33363F" style={styles.sectionIcon} />
+        <Text style={styles.sectionLabel}>Date & time</Text>
+      </View>
+      <Text style={styles.valueText}>
+        {new Date(booking.booking_date).toLocaleDateString('en-US', { 
+          weekday: 'short', 
+          day: '2-digit', 
+          month: 'short'
+        })} - {booking.specific_time?.slice(0, 5)} {booking.time_slot && `(${booking.time_slot})`}
+      </Text>
+
+      <View style={styles.sectionRow}>
+        <Icon name="map-marker" size={16} color="#33363F" style={styles.sectionIcon} />
+        <Text style={styles.sectionLabel}>Location</Text>
+      </View>
+      <Text style={styles.valueText}>{booking.gyms?.name || 'Unknown Location'}</Text>
     </TouchableOpacity>
   );
 }
@@ -118,13 +157,20 @@ function BookingsList({ navigation }) {
   const loadBookings = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        console.log('No authenticated user found');
+        setRefreshing(false);
+        return;
+      }
+      
       setUser(user);
-
       console.log('Current user ID:', user.id);
 
-      // First get all accepted bookings with proper string format for the OR filter
-      const { data: bookingsData, error: bookingsError } = await supabase
+      // Try a completely different approach - manually checking both conditions
+      const userId = user.id;
+      
+      // First, check bookings where user is receiver
+      const { data: receiverBookings, error: receiverError } = await supabase
         .from('booking_invites')
         .select(`
           *,
@@ -134,142 +180,121 @@ function BookingsList({ navigation }) {
             address
           )
         `)
-        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
-        .eq('status', 'accepted')
-        // Only show future bookings
-        .gte('booking_date', new Date().toISOString().split('T')[0]);
-
-      if (bookingsError) {
-        console.error('Error loading bookings:', bookingsError);
-        throw bookingsError;
+        .eq('receiver_id', userId)
+        .eq('status', 'accepted');
+        
+      if (receiverError) {
+        console.error('Error loading receiver bookings:', receiverError);
+        throw receiverError;
       }
-
-      console.log('Retrieved bookings:', bookingsData);
-
-      if (!bookingsData || bookingsData.length === 0) {
+      
+      // Then, check bookings where user is sender
+      const { data: senderBookings, error: senderError } = await supabase
+        .from('booking_invites')
+        .select(`
+          *,
+          gyms (
+            id,
+            name,
+            address
+          )
+        `)
+        .eq('sender_id', userId)
+        .eq('status', 'accepted');
+        
+      if (senderError) {
+        console.error('Error loading sender bookings:', senderError);
+        throw senderError;
+      }
+      
+      // Combine both sets of bookings
+      let allUserBookings = [...(receiverBookings || []), ...(senderBookings || [])];
+      
+      console.log('All user bookings (combined):', allUserBookings.length);
+      
+      // REMOVED date filtering to show all accepted bookings regardless of date
+      // This ensures users can see their booking history
+      
+      console.log('User bookings to display:', allUserBookings.length);
+      
+      if (allUserBookings.length === 0) {
         console.log('No active bookings found');
         setBookings([]);
         setRefreshing(false);
         return;
       }
 
-      // Get all user IDs involved in bookings
+      // Get all user IDs involved in bookings for user info enrichment
       const userIds = [...new Set([
-        ...bookingsData.map(b => b.sender_id),
-        ...bookingsData.map(b => b.receiver_id)
+        ...allUserBookings.map(b => b.sender_id),
+        ...allUserBookings.map(b => b.receiver_id)
       ])];
 
-      // Try to get user profiles from the auth.users table instead
+      console.log('Getting profiles for user IDs:', userIds);
+
+      // Get user profiles with more debugging
       const { data: usersData, error: usersError } = await supabase
         .from('profiles')
         .select('id, email, full_name')
         .in('id', userIds);
 
       if (usersError) {
-        console.error('Error loading user details from profiles:', usersError);
-        // If profiles table doesn't exist, just use basic user info
-        const enrichedBookings = bookingsData.map(booking => {
-          const isUserSender = booking.sender_id === user.id;
-          const partnerId = isUserSender ? booking.receiver_id : booking.sender_id;
-          
-          return {
-            ...booking,
-            sender: { id: booking.sender_id, email: isUserSender ? user.email : 'Partner' },
-            receiver: { id: booking.receiver_id, email: !isUserSender ? user.email : 'Partner' },
-            partner: { id: partnerId, email: 'Partner' }
-          };
-        });
-        
-        console.log('Enriched bookings with basic info:', enrichedBookings);
-        setBookings(enrichedBookings);
-        return;
+        console.error('Error fetching profiles:', usersError);
       }
 
+      console.log('Retrieved profiles:', usersData);
+
       // Create a map for quick user lookup
-      const usersMap = new Map(usersData.map(user => [user.id, user]));
+      const usersMap = new Map();
+      
+      if (usersData && usersData.length > 0) {
+        usersData.forEach(userData => {
+          if (userData && userData.id) {
+            usersMap.set(userData.id, userData);
+            console.log(`Mapped user ${userData.id} to ${userData.full_name || userData.email}`);
+          }
+        });
+      }
 
       // Enrich bookings with user details
-      const enrichedBookings = bookingsData.map(booking => {
-        // Show the partner info - if current user is sender, show receiver, otherwise show sender
-        const isUserSender = booking.sender_id === user.id;
+      const enrichedBookings = allUserBookings.map(booking => {
+        const isUserSender = booking.sender_id === userId;
         const partnerId = isUserSender ? booking.receiver_id : booking.sender_id;
-        const partner = usersMap.get(partnerId) || { id: partnerId, email: 'Unknown User', full_name: 'Unknown User' };
+        const partnerData = usersMap.get(partnerId);
+        
+        console.log(`Partner ID ${partnerId}: `, partnerData);
+        
+        const partner = partnerData || { 
+          id: partnerId, 
+          email: 'Unknown User', 
+          full_name: 'Training Partner' 
+        };
+        
+        const senderData = usersMap.get(booking.sender_id);
+        const receiverData = usersMap.get(booking.receiver_id);
         
         return {
           ...booking,
-          sender: usersMap.get(booking.sender_id) || { id: booking.sender_id, email: 'Unknown', full_name: 'Unknown' },
-          receiver: usersMap.get(booking.receiver_id) || { id: booking.receiver_id, email: 'Unknown', full_name: 'Unknown' },
+          sender: senderData || { 
+            id: booking.sender_id, 
+            email: 'Unknown', 
+            full_name: isUserSender ? user.email : 'Unknown User' 
+          },
+          receiver: receiverData || { 
+            id: booking.receiver_id, 
+            email: 'Unknown', 
+            full_name: !isUserSender ? user.email : 'Unknown User' 
+          },
           partner
         };
       });
 
-      console.log('Enriched bookings with user details:', enrichedBookings);
+      console.log('Final enriched bookings to display:', enrichedBookings.length);
       setBookings(enrichedBookings);
       
     } catch (error) {
-      console.error('Error loading bookings:', error);
-      Alert.alert('Error', 'Failed to load bookings');
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  const debugActiveBookings = async () => {
-    try {
-      setRefreshing(true);
-      const debug = {};
-      
-      // 1. Check authentication status
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      debug.auth = { user: user ? { id: user.id, email: user.email } : null, error: authError };
-      
-      if (!user) {
-        console.log("DEBUG AUTH:", debug.auth);
-        Alert.alert("Debug Info", "Not authenticated! See console for details.");
-        setRefreshing(false);
-        return;
-      }
-      
-      // 2. Check all booking invites with status 'accepted'
-      const { data: allAccepted, error: allAcceptedError } = await supabase
-        .from('booking_invites')
-        .select('*')
-        .eq('status', 'accepted')
-        .limit(100);
-      
-      debug.allAccepted = { count: allAccepted?.length || 0, error: allAcceptedError, sample: allAccepted?.slice(0, 3) };
-      
-      // 3. Check accepted invites for current user as receiver
-      const { data: receiverInvites, error: receiverError } = await supabase
-        .from('booking_invites')
-        .select('*')
-        .eq('receiver_id', user.id)
-        .eq('status', 'accepted');
-      
-      debug.receiverInvites = { count: receiverInvites?.length || 0, error: receiverError, sample: receiverInvites?.slice(0, 3) };
-      
-      // 4. Check accepted invites for current user as sender
-      const { data: senderInvites, error: senderError } = await supabase
-        .from('booking_invites')
-        .select('*')
-        .eq('sender_id', user.id)
-        .eq('status', 'accepted');
-      
-      debug.senderInvites = { count: senderInvites?.length || 0, error: senderError, sample: senderInvites?.slice(0, 3) };
-      
-      console.log("ACTIVE BOOKINGS DEBUG INFO:", JSON.stringify(debug, null, 2));
-      Alert.alert(
-        "Active Bookings Debug", 
-        `Auth: ${user ? 'OK' : 'FAIL'}\n` +
-        `All Accepted: ${debug.allAccepted.count}\n` +
-        `You as Receiver: ${debug.receiverInvites.count}\n` + 
-        `You as Sender: ${debug.senderInvites.count}\n\n` +
-        `See console for complete data`
-      );
-      
-    } catch (error) {
-      console.error("Debug error:", error);
-      Alert.alert("Debug Error", error.message);
+      console.error('Error in loadBookings:', error);
+      Alert.alert('Error', 'Failed to load bookings: ' + error.message);
     } finally {
       setRefreshing(false);
     }
@@ -323,17 +348,10 @@ function BookingsList({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <Button
-        title="Debug Active Bookings" 
-        onPress={debugActiveBookings} 
-        color="#007bff"
-      />
-      
       {bookings.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>No Active Bookings</Text>
           <Text style={styles.emptySubtext}>Your accepted bookings will appear here</Text>
-          <Text style={styles.emptySubtext}>Try the Debug button above to troubleshoot</Text>
         </View>
       ) : (
         <FlatList
@@ -374,39 +392,68 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  partnerName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+  statusContainer: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    zIndex: 1,
   },
   statusText: {
     color: '#fff',
     fontSize: 12,
     fontWeight: '600',
     textTransform: 'capitalize',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
-  cardDetails: {
-    gap: 8,
-  },
-  detailRow: {
+  sectionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    marginBottom: 8,
   },
-  detailText: {
+  sectionIcon: {
+    marginRight: 8,
+  },
+  sectionLabel: {
     fontSize: 14,
-    color: '#666',
+    color: '#333',
+    fontWeight: '500',
+  },
+  partnerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  partnerImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
+  },
+  partnerImagePlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E0E0E0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  partnerInitials: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#757575',
+  },
+  partnerName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  valueText: {
+    fontSize: 14,
+    color: '#333',
+    marginBottom: 16,
   },
   detailContainer: {
     flex: 1,

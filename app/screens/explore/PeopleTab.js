@@ -1,10 +1,38 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Component } from 'react';
 import { View, Text, StyleSheet, Image, Dimensions, TouchableOpacity, Modal, FlatList, ActivityIndicator } from 'react-native';
 import Swiper from 'react-native-deck-swiper';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { supabase } from '../../lib/supabase';
 
 const { width, height } = Dimensions.get('window');
+
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error) {
+    console.error('ErrorBoundary caught an error:', error);
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('Error details:', errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Something went wrong.</Text>
+        </View>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 export default function PeopleTab({ navigation }) {
   const [availableUsers, setAvailableUsers] = useState([]);
@@ -21,27 +49,40 @@ export default function PeopleTab({ navigation }) {
   const loadProfiles = async () => {
     try {
       setLoading(true);
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
 
-      // First get all existing requests/invites for the current user
-      const { data: existingRequests, error: requestsError } = await supabase
+      // Get the current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        return;
+      }
+
+      // Get matched users
+      const { data: matches, error: matchesError } = await supabase
         .from('match_requests')
         .select('requester_id, requested_id')
-        .or(`requester_id.eq.${user.id},requested_id.eq.${user.id}`);
+        .or(`requester_id.eq.${user.id},requested_id.eq.${user.id}`)
+        .eq('status', 'accepted');
 
-      if (requestsError) throw requestsError;
+      if (matchesError) {
+        throw matchesError;
+      }
 
-      // Create sets of user IDs to exclude
-      const excludeUserIds = new Set([
-        user.id, // Exclude current user
-        ...(existingRequests || []).map(r => r.requester_id), // Exclude users who sent requests
-        ...(existingRequests || []).map(r => r.requested_id), // Exclude users who received requests
-      ]);
+      // Create an array of user IDs to exclude (matched users and current user)
+      const userIdsToExclude = [user.id];
+      
+      // Add matched user IDs to the exclusion list
+      if (matches && matches.length > 0) {
+        matches.forEach(match => {
+          if (match.requester_id === user.id) {
+            userIdsToExclude.push(match.requested_id);
+          } else {
+            userIdsToExclude.push(match.requester_id);
+          }
+        });
+      }
 
-      // Fetch all profiles except those with existing interactions
-      const { data: profiles, error } = await supabase
+      // Fetch profiles excluding the current user and matched users
+      const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select(`
           id,
@@ -49,30 +90,31 @@ export default function PeopleTab({ navigation }) {
           gender,
           belt_level,
           height,
-          weight,
-          profile_images (
-            image_url,
-            is_primary
-          )
-        `)
-        .not('id', 'in', `(${Array.from(excludeUserIds).join(',')})`);
+          weight
+        `);
 
-      if (error) throw error;
+      if (profilesError) {
+        throw profilesError;
+      }
 
-      // Format the data
-      const formattedProfiles = profiles
-        .filter(profile => profile.full_name) // Only show profiles that have at least a name
+      // Filter out excluded user IDs
+      const filteredProfiles = profiles.filter(profile => !userIdsToExclude.includes(profile.id));
+
+      // Format profiles for display
+      const formattedProfiles = filteredProfiles
+        .filter(profile => profile.full_name) // Only include profiles with names
         .map(profile => ({
           id: profile.id,
           name: profile.full_name,
-          images: profile.profile_images?.map(img => img.image_url) || ['https://via.placeholder.com/150'],
-          gender: profile.gender,
-          height: profile.height,
-          weight: profile.weight,
-          belt: profile.belt_level
+          images: ['https://via.placeholder.com/150'],
+          gender: profile.gender || 'Unknown',
+          height: profile.height || 'Not specified',
+          weight: profile.weight || 'Not specified',
+          belt: profile.belt_level || 'Unknown'
         }));
 
       setAvailableUsers(formattedProfiles);
+      
     } catch (error) {
       console.error('Error loading profiles:', error.message);
     } finally {
@@ -85,7 +127,6 @@ export default function PeopleTab({ navigation }) {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        console.error('User not authenticated');
         return;
       }
 
@@ -99,7 +140,6 @@ export default function PeopleTab({ navigation }) {
       if (checkError) throw checkError;
 
       if (existingRequests && existingRequests.length > 0) {
-        console.log('Request already exists between these users');
         // Still remove from available users to prevent duplicate requests
         setSwiped(prev => new Set([...prev, requestedUser.id]));
         setAvailableUsers(prev => prev.filter(u => u.id !== requestedUser.id));
@@ -120,7 +160,6 @@ export default function PeopleTab({ navigation }) {
         .single();
 
       if (insertError) throw insertError;
-      console.log('Match request sent to:', requestedUser.name);
 
       // Add to swiped set and remove from available users
       setSwiped(prev => new Set([...prev, requestedUser.id]));
@@ -220,72 +259,74 @@ export default function PeopleTab({ navigation }) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#000" />
+        <Text>Loading profiles...</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      {availableUsers.length > 0 ? (
-        <Swiper
-          cards={availableUsers}
-          renderCard={renderCard}
-          onSwipedRight={handleSwipeRight}
-          onSwipedLeft={(cardIndex) => console.log('Nope')}
-          cardIndex={0}
-          backgroundColor={'transparent'}
-          stackSize={3}
-          stackSeparation={15}
-          cardVerticalMargin={20}
-          cardHorizontalMargin={10}
-          animateOverlayLabelsOpacity
-          animateCardOpacity
-          swipeBackCard
-          overlayLabels={{
-            left: {
-              title: 'NOPE',
-              style: {
-                label: {
-                  backgroundColor: '#FF0000',
-                  color: '#fff',
-                  fontSize: 24
-                },
-                wrapper: {
-                  flexDirection: 'column',
-                  alignItems: 'flex-end',
-                  justifyContent: 'flex-start',
-                  marginTop: 30,
-                  marginLeft: -30
+    <ErrorBoundary>
+      <View style={styles.container}>
+        {availableUsers.length > 0 ? (
+          <Swiper
+            cards={availableUsers}
+            renderCard={renderCard}
+            onSwipedRight={handleSwipeRight}
+            onSwipedLeft={(cardIndex) => console.log('Nope')}            cardIndex={0}
+            backgroundColor={'transparent'}
+            stackSize={3}
+            stackSeparation={12}
+            cardVerticalMargin={15}
+            cardHorizontalMargin={10}
+            animateOverlayLabelsOpacity
+            animateCardOpacity
+            swipeBackCard
+            overlayLabels={{
+              left: {
+                title: 'NOPE',
+                style: {
+                  label: {
+                    backgroundColor: '#FF0000',
+                    color: '#fff',
+                    fontSize: 24
+                  },
+                  wrapper: {
+                    flexDirection: 'column',
+                    alignItems: 'flex-end',
+                    justifyContent: 'flex-start',
+                    marginTop: 30,
+                    marginLeft: -30
+                  }
+                }
+              },
+              right: {
+                title: 'MATCH',
+                style: {
+                  label: {
+                    backgroundColor: '#4CAF50',
+                    color: '#fff',
+                    fontSize: 24
+                  },
+                  wrapper: {
+                    flexDirection: 'column',
+                    alignItems: 'flex-start',
+                    justifyContent: 'flex-start',
+                    marginTop: 30,
+                    marginLeft: 30
+                  }
                 }
               }
-            },
-            right: {
-              title: 'MATCH',
-              style: {
-                label: {
-                  backgroundColor: '#4CAF50',
-                  color: '#fff',
-                  fontSize: 24
-                },
-                wrapper: {
-                  flexDirection: 'column',
-                  alignItems: 'flex-start',
-                  justifyContent: 'flex-start',
-                  marginTop: 30,
-                  marginLeft: 30
-                }
-              }
-            }
-          }}
-        />
-      ) : (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No More Profiles</Text>
-          <Text style={styles.emptySubtext}>Check back later for new training partners</Text>
-        </View>
-      )}
-      <ImageGallery />
-    </View>
+            }}
+          />
+        ) : (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No More Profiles</Text>
+            <Text style={styles.emptySubtext}>Check back later for new training partners</Text>
+          </View>
+        )}
+        <ImageGallery />
+      </View>
+    </ErrorBoundary>
   );
 }
 
@@ -300,10 +341,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyContainer: {
-    flex: 1,
+    flex:1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding:20,
   },
   emptyText: {
     fontSize: 20,
@@ -315,10 +356,9 @@ const styles = StyleSheet.create({
     fontFamily: 'Raleway-Regular',
     color: '#666',
     textAlign: 'center',
-  },
-  card: {
-    width: width * 0.9,
-    height: width * 1.2,
+  },  card: {
+    width: width * 0.85,
+    height: height * 0.65,
     borderRadius: 20,
     backgroundColor: '#fff',
     shadowColor: '#000',
@@ -330,30 +370,27 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
     overflow: 'hidden'
-  },
-  image: {
+  },  image: {
     width: '100%',
-    height: '70%',
+    height: '60%',
     resizeMode: 'cover'
-  },
-  cardContent: {
-    padding: 15
+  },  cardContent: {
+    padding: 12
   },
   name: {
-    fontSize: 24,
+    fontSize: 22,
     fontFamily: 'Raleway-Bold',
-    marginBottom: 8
-  },
-  detailsContainer: {
+    marginBottom: 6
+  },  detailsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between'
   },
   detail: {
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: 'Raleway-Regular',
     color: '#666',
-    marginVertical: 4,
+    marginVertical: 3,
     flexBasis: '48%'
   },
   modalContainer: {
@@ -391,5 +428,16 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     marginHorizontal: 4
-  }
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+  },
+  errorText: {
+    fontSize: 18,
+    color: '#FF0000',
+    fontFamily: 'Raleway-Bold',
+  },
 });

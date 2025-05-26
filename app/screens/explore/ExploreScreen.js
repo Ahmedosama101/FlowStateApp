@@ -1,11 +1,8 @@
-import React from 'react';
-import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
-import { View, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import UserWelcome from '../../../components/UserWelcome';
 import PeopleTab from './PeopleTab';
 import GymsTab from './GymsTab';
-
-const Tab = createMaterialTopTabNavigator();
 
 const dummyUser = {
   name: null,
@@ -13,36 +10,49 @@ const dummyUser = {
 };
 
 export default function ExploreScreen() {
+  const [selectedTab, setSelectedTab] = useState('people');
+
   return (
     <View style={styles.container}>
       <UserWelcome user={dummyUser} />
-      <Tab.Navigator
-        screenOptions={{
-          tabBarStyle: styles.tabBar,
-          tabBarLabelStyle: styles.tabLabel,
-          tabBarIndicatorStyle: styles.tabIndicator,
-          tabBarPressColor: 'transparent',
-          swipeEnabled: true,
-          animationEnabled: true,
-          tabBarActiveTintColor: '#000',
-          tabBarInactiveTintColor: '#666',
-        }}
-      >
-        <Tab.Screen 
-          name="People" 
-          component={PeopleTab}
-          options={{
-            tabBarLabel: 'People'
-          }}
-        />
-        <Tab.Screen 
-          name="Gyms" 
-          component={GymsTab}
-          options={{
-            tabBarLabel: 'Gyms'
-          }}
-        />
-      </Tab.Navigator>
+      
+      {/* Custom toggle tabs with original tab names */}
+      <View style={styles.toggleContainer}>
+        <TouchableOpacity 
+          style={[
+            styles.toggleButton, 
+            selectedTab === 'people' ? styles.toggleButtonActive : null
+          ]}
+          onPress={() => setSelectedTab('people')}
+        >
+          <Text style={[
+            styles.toggleText,
+            selectedTab === 'people' ? styles.toggleTextActive : null
+          ]}>People</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[
+            styles.toggleButton, 
+            selectedTab === 'gyms' ? styles.toggleButtonActive : null
+          ]}
+          onPress={() => setSelectedTab('gyms')}
+        >
+          <Text style={[
+            styles.toggleText,
+            selectedTab === 'gyms' ? styles.toggleTextActive : null
+          ]}>Gyms</Text>
+        </TouchableOpacity>
+      </View>
+      
+      {/* Content based on selected tab */}
+      <View style={styles.contentContainer}>
+        {selectedTab === 'people' ? (
+          <PeopleTab />
+        ) : (
+          <GymsTab />
+        )}
+      </View>
     </View>
   );
 }
@@ -53,20 +63,37 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     paddingTop: 35,
   },
-  tabBar: {
-    backgroundColor: '#fff',
-    elevation: 0,
-    shadowOpacity: 0,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+  toggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#F0F0F0',
+    borderRadius: 25,
+    margin: 15,
+    padding: 5,
   },
-  tabLabel: {
-    textTransform: 'none',
-    fontWeight: '600',
+  toggleButton: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: 20,
+  },
+  toggleButtonActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1,
+    elevation: 2,
+  },
+  toggleText: {
     fontSize: 14,
+    color: '#666666',
+    fontWeight: '500',
   },
-  tabIndicator: {
-    backgroundColor: '#007BFF',
-    height: 3,
+  toggleTextActive: {
+    color: '#000000',
+    fontWeight: '600',
+  },
+  contentContainer: {
+    flex: 1,
   },
 });

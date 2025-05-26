@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Image, Alert, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, Image, Alert, ActivityIndicator, Platform, ScrollView, KeyboardAvoidingView } from 'react-native';
 import { useFonts } from 'expo-font';
 import { supabase } from '../lib/supabase';
 import { Dropdown } from 'react-native-element-dropdown';
@@ -156,149 +156,162 @@ export default function SignUpScreen({navigation}) {
   }
 
   return (
-    <View style={styles.container}>
-      {loading && (
-        <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color="#000" />
-        </View>
-      )}
-      
-      <Text style={styles.title}>Sign Up</Text>
-      <Text style={styles.subtitle}>
-        Join FlowState to connect with training partners and find the perfect gym.
-      </Text>
-
-      <View style={{ marginHorizontal: 25 }}>
-        <Text style={styles.label}>Full Name</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Full Name"
-          value={fullName}
-          onChangeText={setFullName}
-          editable={!loading}
-        />
-
-        <Text style={styles.label}>Phone Number</Text>
-        <View style={styles.phoneContainer}>
-          <Dropdown
-            style={styles.countryDropdown}
-            data={countries}
-            maxHeight={300}
-            labelField="label"
-            valueField="value"
-            placeholder="Country"
-            value={country}
-            onChange={item => setCountry(item.value)}
-            disable={loading}
-          />
-          <MaskInput
-            style={styles.phoneInput}
-            value={phoneNumber}
-            onChangeText={setPhoneNumber}
-            mask={countries.find(c => c.value === country)?.mask || []}
-            keyboardType="phone-pad"
-            placeholder="Phone Number"
-            editable={!loading}
-          />
-        </View>
-
-        <Text style={styles.label}>Email</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          editable={!loading}
-        />
-
-        <Text style={styles.label}>Password</Text>
-        <View style={styles.passwordContainer}>
-          <TextInput
-            style={[styles.input, { flex: 1, marginRight: 0, borderWidth: 0 }]}
-            placeholder="Password"
-            value={password}
-            onChangeText={handlePasswordChange}
-            secureTextEntry={!showPassword}
-            editable={!loading}
-          />
-          <TouchableOpacity 
-            style={styles.passwordVisibilityButton}
-            onPress={() => setShowPassword(!showPassword)}
-          >
-            <Ionicons 
-              name={showPassword ? 'eye' : 'eye-off'} 
-              size={24} 
-              color="black" 
-            />
-          </TouchableOpacity>
-        </View>
-
-        <Text style={styles.label}>Confirm Password</Text>
-        <View style={styles.passwordContainer}>
-          <TextInput
-            style={[styles.input, { flex: 1, marginRight: 0, borderWidth: 0 }]}
-            placeholder="Confirm Password"
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            secureTextEntry={!showConfirmPassword}
-            editable={!loading}
-          />
-          <TouchableOpacity 
-            style={styles.passwordVisibilityButton}
-            onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-          >
-            <Ionicons 
-              name={showConfirmPassword ? 'eye' : 'eye-off'} 
-              size={24} 
-              color="black" 
-            />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <Text style={styles.terms}>
-        By continuing, you agree to <Text style={styles.innerText}> Terms of Use</Text> and <Text style={styles.innerText}> Privacy Policy</Text>.
-      </Text>
-
-      <TouchableOpacity 
-        style={[styles.button, loading && styles.buttonDisabled]} 
-        onPress={handleSignUp}
-        disabled={loading}
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={{ flex: 1 }}
+    >
+      <ScrollView 
+        style={styles.container}
+        contentContainerStyle={styles.contentContainer}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.buttonText}>{loading ? 'Creating account...' : 'Sign Up'}</Text>
-      </TouchableOpacity>
-
-      <Text style={styles.or}>or sign up with</Text>
-      <View style={styles.socialButtonsContainer}>
-        <TouchableOpacity style={styles.socialButton}>
-          <Image style={{color:'white'}} source={require('../assets/Gmail.png')} />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.socialButton}>
-          <Image style={{ bord:'white'}} source={require('../assets/Facebook.png')} />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.socialButton}>
-          <Image style={{color:'white'}} source={require('../assets/Mark.png')} />
-        </TouchableOpacity>
-      </View>
-
-      <Text style={styles.haveAccountText}>
-        Already have an account?{' '}
-        <Text style={styles.loginText} onPress={() => navigation.navigate('Login')}>
-          Log in
+        {loading && (
+          <View style={styles.loaderContainer}>
+            <ActivityIndicator size="large" color="#000" />
+          </View>
+        )}
+        
+        <Text style={styles.title}>Sign Up</Text>
+        <Text style={styles.subtitle}>
+          Join FlowState to connect with training partners and find the perfect gym.
         </Text>
-      </Text>
-    </View>
+
+        <View style={{ marginHorizontal: 25 }}>
+          <Text style={styles.label}>Full Name</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Full Name"
+            value={fullName}
+            onChangeText={setFullName}
+            editable={!loading}
+          />
+
+          <Text style={styles.label}>Phone Number</Text>
+          <View style={styles.phoneContainer}>
+            <Dropdown
+              style={styles.countryDropdown}
+              data={countries}
+              maxHeight={300}
+              labelField="label"
+              valueField="value"
+              placeholder="Country"
+              value={country}
+              onChange={item => setCountry(item.value)}
+              disable={loading}
+            />
+            <MaskInput
+              style={styles.phoneInput}
+              value={phoneNumber}
+              onChangeText={setPhoneNumber}
+              mask={countries.find(c => c.value === country)?.mask || []}
+              keyboardType="phone-pad"
+              placeholder="Phone Number"
+              editable={!loading}
+            />
+          </View>
+
+          <Text style={styles.label}>Email</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Email"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            editable={!loading}
+          />
+
+          <Text style={styles.label}>Password</Text>
+          <View style={styles.passwordContainer}>
+            <TextInput
+              style={[styles.input, { flex: 1, marginRight: 0, borderWidth: 0 }]}
+              placeholder="Password"
+              value={password}
+              onChangeText={handlePasswordChange}
+              secureTextEntry={!showPassword}
+              editable={!loading}
+            />
+            <TouchableOpacity 
+              style={styles.passwordVisibilityButton}
+              onPress={() => setShowPassword(!showPassword)}
+            >
+              <Ionicons 
+                name={showPassword ? 'eye' : 'eye-off'} 
+                size={24} 
+                color="black" 
+              />
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.label}>Confirm Password</Text>
+          <View style={styles.passwordContainer}>
+            <TextInput
+              style={[styles.input, { flex: 1, marginRight: 0, borderWidth: 0 }]}
+              placeholder="Confirm Password"
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry={!showConfirmPassword}
+              editable={!loading}
+            />
+            <TouchableOpacity 
+              style={styles.passwordVisibilityButton}
+              onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+            >
+              <Ionicons 
+                name={showConfirmPassword ? 'eye' : 'eye-off'} 
+                size={24} 
+                color="black" 
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <Text style={styles.terms}>
+          By continuing, you agree to <Text style={styles.innerText}> Terms of Use</Text> and <Text style={styles.innerText}> Privacy Policy</Text>.
+        </Text>
+
+        <TouchableOpacity 
+          style={[styles.button, loading && styles.buttonDisabled]} 
+          onPress={handleSignUp}
+          disabled={loading}
+        >
+          <Text style={styles.buttonText}>{loading ? 'Creating account...' : 'Sign Up'}</Text>
+        </TouchableOpacity>
+
+        <Text style={styles.or}>or sign up with</Text>
+        <View style={styles.socialButtonsContainer}>
+          <TouchableOpacity style={styles.socialButton}>
+            <Image style={{color:'white'}} source={require('../assets/Gmail.png')} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.socialButton}>
+            <Image style={{ bord:'white'}} source={require('../assets/Facebook.png')} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.socialButton}>
+            <Image style={{color:'white'}} source={require('../assets/Mark.png')} />
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.haveAccountText}>
+          Already have an account?{' '}
+          <Text style={styles.loginText} onPress={() => navigation.navigate('Login')}>
+            Log in
+          </Text>
+        </Text>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    justifyContent: 'center',
     backgroundColor: '#fff', // Set background color to white
+  },
+  contentContainer: {
+    padding: 20,
+    paddingTop: 40,
+    paddingBottom: 40,
   },
   title: {
     fontSize: 40,

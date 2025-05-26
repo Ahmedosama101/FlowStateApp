@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, FlatList, Dimensions } from 'react-native';
-import Icon from 'react-native-vector-icons/FontAwesome';
+import { View, StyleSheet, FlatList } from 'react-native';
+import { Card, Title, Paragraph, Avatar, Button, Text } from 'react-native-paper';
+import { MaterialIcons } from '@expo/vector-icons'; // Import MaterialIcons for icons
 import UserWelcome from '../../components/UserWelcome';
 
 const dummyUser = {
@@ -28,37 +29,37 @@ const recommendedGyms = [
 
 export default function MainPage({ navigation }) {
   const renderMatchedUserCard = ({ item }) => (
-    <View style={styles.userCard}>
-      <Icon name="certificate" size={30} color="#000" style={styles.beltIcon} />
-      <View style={styles.userInfoContainer}>
-        <Text style={styles.userName}>{item.name}</Text>
-        <View style={styles.userInfoRowTitles}>
-          <Text style={styles.infoTitle}>Age</Text>
-          <Text style={styles.infoTitle}>Height</Text>
-          <Text style={styles.infoTitle}>Weight</Text>
-        </View>
-        <View style={styles.userInfoRowValues}>
-          <Text style={styles.infoValue}>{item.age}</Text>
-          <Text style={styles.infoValue}>{item.height} cm</Text>
-          <Text style={styles.infoValue}>{item.weight} kg</Text>
-        </View>
-      </View>
-    </View>
+    <Card style={styles.card}>
+      <Card.Title
+        title={item.name}
+        subtitle={`Belt: ${item.belt}`}
+        left={(props) => <Avatar.Text {...props} label={item.name[0]} />}
+      />
+      <Card.Content>
+        <Paragraph>Age: {item.age}</Paragraph>
+        <Paragraph>Height: {item.height} cm</Paragraph>
+        <Paragraph>Weight: {item.weight} kg</Paragraph>
+      </Card.Content>
+    </Card>
   );
 
   const renderGymCard = ({ item }) => (
-    <View style={styles.gymCard}>
-      <Image
-        source={item.image ? { uri: item.image } : { uri: 'https://via.placeholder.com/300x150' }}
-        style={styles.gymCardImage}
-      />
-      <View style={styles.gymCardDetails}>
-        <Text style={styles.cardText}>{item.name}</Text>
-        <Text style={styles.cardText}>{item.location}</Text>
-        <Text style={styles.locationLink}>View on Map</Text>
-        <Text style={styles.cardText}>{item.hours}</Text>
-      </View>
-    </View>
+    <Card style={styles.card}>
+      <Card.Cover source={{ uri: item.image }} />
+      <Card.Content>
+        <Title>{item.name}</Title>
+        <Paragraph>{item.location}</Paragraph>
+        <Paragraph>Hours: {item.hours}</Paragraph>
+      </Card.Content>
+      <Card.Actions style={styles.cardActions}> {/* Adjusted styling for proper alignment */}
+        <Button
+          icon={() => <MaterialIcons name="map" size={20} color="#0C2252" />} // Added icon
+          onPress={() => navigation.navigate('MapScreen', { location: item.location })}
+        >
+          View on Map
+        </Button>
+      </Card.Actions>
+    </Card>
   );
 
   return (
@@ -66,38 +67,34 @@ export default function MainPage({ navigation }) {
       <UserWelcome user={dummyUser} />
 
       {/* Upcoming Activity Section */}
-      <View style={styles.activityContainer}>
-        <Text style={styles.sectionTitle}>Upcoming Activity</Text>
-        <View style={styles.activityCard}>
-          <Text style={styles.activityTitle}>{upcomingActivity.title}</Text>
-          <Text style={styles.activityDetails}>{upcomingActivity.date}</Text>
-          <Text style={styles.activityDetails}>{upcomingActivity.location}</Text>
-        </View>
-      </View>
+      <Card style={styles.card}>
+        <Card.Content>
+          <Title>Upcoming Activity</Title>
+          <Paragraph>{upcomingActivity.title}</Paragraph>
+          <Paragraph>{upcomingActivity.date}</Paragraph>
+          <Paragraph>{upcomingActivity.location}</Paragraph>
+        </Card.Content>
+      </Card>
 
       {/* Matched Users Section */}
-      <View style={styles.swiperContainer}>
-        <Text style={styles.sectionTitle}>Matched Users</Text>
-        <FlatList
-          horizontal
-          data={matchedUsers}
-          renderItem={renderMatchedUserCard}
-          keyExtractor={(item) => item.id}
-          showsHorizontalScrollIndicator={false}
-        />
-      </View>
+      <Text style={styles.sectionTitle}>Matched Users</Text>
+      <FlatList
+        horizontal
+        data={matchedUsers}
+        renderItem={renderMatchedUserCard}
+        keyExtractor={(item) => item.id}
+        showsHorizontalScrollIndicator={false}
+      />
 
       {/* Recommended Gyms Section */}
-      <View style={styles.swiperContainer}>
-        <Text style={styles.sectionTitle}>Recommended Gyms</Text>
-        <FlatList
-          horizontal
-          data={recommendedGyms}
-          renderItem={renderGymCard}
-          keyExtractor={(item) => item.id}
-          showsHorizontalScrollIndicator={false}
-        />
-      </View>
+      <Text style={styles.sectionTitle}>Recommended Gyms</Text>
+      <FlatList
+        horizontal
+        data={recommendedGyms}
+        renderItem={renderGymCard}
+        keyExtractor={(item) => item.id}
+        showsHorizontalScrollIndicator={false}
+      />
     </View>
   );
 }
@@ -108,125 +105,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     padding: 20,
   },
-  headerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  card: {
     marginBottom: 20,
-  },
-  profileImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
     marginRight: 10,
+    width: 300,
   },
-  welcomeText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  activityContainer: {
-    marginBottom: 20,
+  cardActions: {
+    justifyContent: 'flex-end', // Align actions properly within the card
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  activityCard: {
-    backgroundColor: '#f9f9f9',
-    padding: 15,
-    borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  activityTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 5,
-  },
-  activityDetails: {
-    fontSize: 14,
-    color: '#555',
-  },
-  swiperContainer: {
-    marginBottom: 20,
-  },
-  userCard: {
-    width: 200, // Specific width for user cards
-    alignItems: 'center',
-    marginRight: 10,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 10,
-    padding: 10,
-  },
-  gymCard: {
-    width: 300, // Specific width for gym cards
-    height: 400, // Specific height for gym cards
-    alignItems: 'center',
-    marginRight: 10,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 10,
-    padding: 10,
-  },
-  cardImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 10,
-    marginBottom: 5,
-    backgroundColor: '#ddd',
-  },
-  cardText: {
-    fontSize: 16, // Increased font size
-    textAlign: 'left',
-  },
-  gymCardImage: {
-    width: '100%',
-    height: '60%', // Increased height to occupy more space
-    borderTopLeftRadius: 10,
-    borderTopRightRadius: 10,
-  },
-  gymCardDetails: {
-    padding: 10,
-  },
-  beltIcon: {
-    position: 'absolute',
-    top: 10,
-    left: 10,
-  },
-  userInfoContainer: {
-    marginLeft: 40, // Align user info to the left
-  },
-  locationLink: {
-    fontSize: 16, // Match font size
-    color: 'blue',
-    textDecorationLine: 'underline',
-  },
-  userName: {
-    fontSize: 18, // Larger font size for the name
-    fontWeight: 'bold',
-    marginBottom: 5,
-  },
-  userInfoRowTitles: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginBottom: 5,
-  },
-  infoTitle: {
-    fontSize: 12, // Smaller font size for titles
-    color: '#555',
-  },
-  userInfoRowValues: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-  },
-  infoValue: {
-    fontSize: 16, // Larger font size for values
-    fontWeight: 'bold',
+    marginVertical: 10,
+    color: '#0C2252', // Updated color to match system design
   },
 });

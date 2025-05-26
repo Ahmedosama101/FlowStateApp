@@ -7,6 +7,7 @@ import ExploreScreen from '../screens/explore/ExploreScreen';
 import BookingScreen from '../screens/booking/BookingScreen';
 import ProfileStackNavigator from './ProfileStackNavigator';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const Tab = createBottomTabNavigator();
 
@@ -39,67 +40,36 @@ export default function MainNavigator() {
           }
 
           return (
-            <View style={{ 
-              padding: 5,
-              borderRadius: 50,
-              backgroundColor: focused ? '#BBD4F9' : 'transparent' 
-            }}>
-              <Icon name={iconName} size={size} color={color} />
+            <View
+              style={{
+                padding: 5,
+                borderRadius: 30,
+                backgroundColor: focused ? '#0C2252' : 'transparent',
+              }}
+            >
+              <Icon name={iconName} size={size} color={focused ? '#FFFFFF' : color} />
             </View>
           );
         },
-        tabBarActiveTintColor: '#007BFF',
-        tabBarInactiveTintColor: '#8E8E93',
         tabBarStyle: {
-          height: 80,
-          paddingBottom: 8,
-          paddingTop: 8,
-          backgroundColor: '#fff',
-          borderTopWidth: 1,
-          borderTopColor: '#E5E5EA',
+          height: 90,
+          backgroundColor: '#0C2252',
+          borderTopLeftRadius: 20,
+          borderTopRightRadius: 20,
+          position: 'absolute',
+          overflow: 'hidden',
         },
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontFamily: 'Raleway-Medium',
-        },
+        tabBarShowLabel: false, // Hide labels to show only icons
+        tabBarActiveTintColor: '#FFFFFF',
+        tabBarInactiveTintColor: '#8E8E93',
       })}
       initialRouteName="Home"
     >
-      <Tab.Screen 
-        name="Home" 
-        component={MainPage}
-        options={{
-          tabBarLabel: 'Home'
-        }}
-      />
-      <Tab.Screen 
-        name="Explore" 
-        component={ExploreScreen}
-        options={{
-          tabBarLabel: 'Explore'
-        }}
-      />
-      <Tab.Screen 
-        name="Matches" 
-        component={MatchesScreen}
-        options={{
-          tabBarLabel: 'Matches'
-        }}
-      />
-      <Tab.Screen 
-        name="Booking" 
-        component={BookingScreen}
-        options={{
-          tabBarLabel: 'Booking'
-        }}
-      />
-      <Tab.Screen 
-        name="Profile" 
-        component={ProfileStackNavigator}
-        options={{
-          tabBarLabel: 'Profile'
-        }}
-      />
-    </Tab.Navigator>    
+      <Tab.Screen name="Home" component={MainPage} />
+      <Tab.Screen name="Explore" component={ExploreScreen} />
+      <Tab.Screen name="Matches" component={MatchesScreen} />
+      <Tab.Screen name="Booking" component={BookingScreen} />
+      <Tab.Screen name="Profile" component={ProfileStackNavigator} />
+    </Tab.Navigator>
   );
 }

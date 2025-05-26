@@ -2,11 +2,15 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { useFonts } from 'expo-font';
-import { supabase } from '../lib/supabase';  // Fixed import path
+import { supabase } from '../lib/supabase';
 
 export default function EditProfileScreen({ route, navigation }) {
   const { userData } = route.params;
-  const [formData, setFormData] = useState(userData);
+  const [formData, setFormData] = useState({
+    ...userData,
+    // Convert age to string if it exists, otherwise use empty string
+    age: userData.age ? userData.age.toString() : ''
+  });
 
   const [fontsLoaded] = useFonts({
     'Raleway-Regular': require('../assets/fonts/Raleway-Regular.ttf'),
@@ -16,6 +20,10 @@ export default function EditProfileScreen({ route, navigation }) {
 
   const handleSave = async () => {
     try {
+      if (!formData.id) {
+        throw new Error('User ID is missing');
+      }
+
       // Update user metadata for phone number if it changed
       if (formData.phone_number !== userData.phone_number) {
         const { error: metadataError } = await supabase.auth.updateUser({
@@ -29,14 +37,20 @@ export default function EditProfileScreen({ route, navigation }) {
         .from('profiles')
         .update({
           full_name: formData.fullName,
+          // Don't update date_of_birth from age as it requires special handling
+          gender: formData.gender,
+          weight: formData.weight,
+          height: formData.height,
           updated_at: new Date().toISOString()
         })
-        .eq('id', userData.id);
+        .eq('id', formData.id);
 
       if (profileError) throw profileError;
       
+      Alert.alert('Success', 'Profile updated successfully');
       navigation.goBack();
     } catch (error) {
+      console.error('Update error:', error.message);
       Alert.alert('Error', error.message);
     }
   };
@@ -76,14 +90,14 @@ export default function EditProfileScreen({ route, navigation }) {
         <FormField
           label="Email"
           value={formData.email}
-          onChangeText={(text) => updateField('email', text)}
-          keyboardType="email-address"
+          editable={false} // Email should generally not be editable through profile
         />
         <FormField
           label="Age"
-          value={formData.age.toString()}
-          onChangeText={(text) => updateField('age', parseInt(text) || '')}
+          value={formData.age}
+          onChangeText={(text) => updateField('age', text)}
           keyboardType="numeric"
+          editable={false} // Should not directly edit age as it's calculated from DOB
         />
         <FormField
           label="Gender"
@@ -91,14 +105,16 @@ export default function EditProfileScreen({ route, navigation }) {
           onChangeText={(text) => updateField('gender', text)}
         />
         <FormField
-          label="Weight"
+          label="Weight (kg)"
           value={formData.weight}
           onChangeText={(text) => updateField('weight', text)}
+          keyboardType="numeric"
         />
         <FormField
-          label="Height"
+          label="Height (cm)"
           value={formData.height}
           onChangeText={(text) => updateField('height', text)}
+          keyboardType="numeric"
         />
         <FormField
           label="Phone Number"
@@ -111,14 +127,15 @@ export default function EditProfileScreen({ route, navigation }) {
   );
 }
 
-const FormField = ({ label, value, onChangeText, keyboardType = 'default' }) => (
+const FormField = ({ label, value, onChangeText, keyboardType = 'default', editable = true }) => (
   <View style={styles.fieldContainer}>
     <Text style={styles.label}>{label}</Text>
     <TextInput
-      style={styles.input}
+      style={[styles.input, !editable && styles.disabledInput]}
       value={value}
       onChangeText={onChangeText}
       keyboardType={keyboardType}
+      editable={editable}
     />
   </View>
 );
@@ -171,5 +188,9 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
     fontFamily: 'Raleway-Regular',
+  },
+  disabledInput: {
+    backgroundColor: '#f0f0f0',
+    color: '#888',
   },
 });

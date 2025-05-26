@@ -12,9 +12,11 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "jsEngine": "hermes",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.ahmedosama101.flowstate"
+      "bundleIdentifier": "com.ahmedosama101.flowstate",
+      "jsEngine": "jsc"
     },
     "android": {
       "adaptiveIcon": {

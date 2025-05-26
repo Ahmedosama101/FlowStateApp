@@ -1,15 +1,42 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
+import { supabase } from '../app/lib/supabase';
 
-const UserWelcome = ({ user }) => {
+const UserWelcome = () => {
+  const [userName, setUserName] = useState('User');
+
+  useEffect(() => {
+    const fetchUserName = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', user.id)
+            .single();
+
+          if (error) throw error;
+          if (data) {
+            setUserName(data.full_name || 'User');
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user name:', error.message);
+      }
+    };
+
+    fetchUserName();
+  }, []);
+
   return (
     <View style={[styles.headerContainer, styles.userWelcomeContainer]}>
       <Image
-        source={user.profileImage ? { uri: user.profileImage } : { uri: 'https://images.unsplash.com/photo-1744132116978-bbf797a1e689?q=80&w=1887&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' }}
+        source={{ uri: 'https://images.unsplash.com/photo-1744132116978-bbf797a1e689?q=80&w=1887&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' }}
         style={styles.profileImage}
       />
       <Text style={styles.welcomeText}>
-        Welcome {user.name ? user.name : 'User'}
+        Welcome {userName}
       </Text>
     </View>
   );

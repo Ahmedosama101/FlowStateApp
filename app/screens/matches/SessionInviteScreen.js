@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { supabase } from '../../lib/supabase';
 
 export default function SessionInviteScreen({ navigation, route }) {
-  const { partnerId, partnerName, matchRequestId } = route.params;
+  const { partnerId, partnerName, matchRequestId, partnerImage } = route.params;
   const [selectedGym, setSelectedGym] = useState(null);
   const [selectedDateTime, setSelectedDateTime] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -165,51 +165,40 @@ export default function SessionInviteScreen({ navigation, route }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Icon name="arrow-left" size={24} color="#333" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Schedule Session</Text>
+        <Text style={styles.headerTitle}>Session invite</Text>
       </View>
 
       <View style={styles.content}>
-        <View style={styles.userInfo}>
-          <Text style={styles.userName}>Training with {partnerName || 'Partner'}</Text>
+        <View style={styles.userCard}>
+          <Image 
+            source={{ uri: partnerImage || 'https://via.placeholder.com/150' }} 
+            style={styles.userImage} 
+          />
+          <Text style={styles.userName}>{partnerName || 'Partner'}</Text>
         </View>
 
         <TouchableOpacity
-          style={styles.selectionButton}
+          style={styles.inputField}
           onPress={handleGymSelection}
           disabled={loading}
         >
-          <View style={styles.selectionContent}>
-            <Icon name="map-marker" size={24} color="#007BFF" />
-            <View style={styles.selectionTextContainer}>
-              <Text style={styles.selectionLabel}>Gym</Text>
-              <Text style={styles.selectionValue}>
-                {selectedGym ? selectedGym.name : 'Select a gym'}
-              </Text>
-            </View>
-            <Icon name="chevron-right" size={16} color="#666" />
-          </View>
+          <Text style={[styles.inputText, !selectedGym && styles.placeholderText]}>
+            {selectedGym ? selectedGym.name : 'Where'}
+          </Text>
+          <Icon name="chevron-right" size={16} color="#666" />
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[
-            styles.selectionButton,
-            !selectedGym && styles.disabledButton
-          ]}
+          style={[styles.inputField, !selectedGym && styles.disabledInput]}
           onPress={handleTimeSelection}
           disabled={!selectedGym || loading}
         >
-          <View style={styles.selectionContent}>
-            <Icon name="clock-o" size={24} color="#007BFF" />
-            <View style={styles.selectionTextContainer}>
-              <Text style={styles.selectionLabel}>Date & Time</Text>
-              <Text style={styles.selectionValue}>
-                {selectedDateTime
-                  ? `${selectedDateTime.date} at ${selectedDateTime.time}`
-                  : 'Select date and time'}
-              </Text>
-            </View>
-            <Icon name="chevron-right" size={16} color="#666" />
-          </View>
+          <Text style={[styles.inputText, !selectedDateTime && styles.placeholderText]}>
+            {selectedDateTime
+              ? `${selectedDateTime.date} at ${selectedDateTime.time}`
+              : 'When'}
+          </Text>
+          <Icon name="chevron-right" size={16} color="#666" />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -240,60 +229,75 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    marginBottom: 12,
   },
   backButton: {
     padding: 8,
+    marginRight: 8,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontFamily: 'Raleway-Bold',
-    marginLeft: 16,
+    color: '#1E3A8A',
+    flex: 1,
+    textAlign: 'center',
+    marginRight: 40, // To offset the back button and center the title
   },
   content: {
     flex: 1,
-    padding: 16,
+    paddingHorizontal: 20,
   },
-  userInfo: {
-    marginBottom: 32,
-  },
-  userName: {
-    fontSize: 24,
-    fontFamily: 'Raleway-Bold',
-  },
-  selectionButton: {
-    backgroundColor: '#F8F9FA',
+  userCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  userImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    marginRight: 16,
+  },
+  userName: {
+    fontSize: 18,
+    fontFamily: 'Raleway-Bold',
+    color: '#1E3A8A',
+  },
+  inputField: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
     marginBottom: 16,
     borderWidth: 1,
     borderColor: '#E0E0E0',
   },
-  selectionContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  selectionTextContainer: {
-    flex: 1,
-    marginHorizontal: 12,
-  },
-  selectionLabel: {
-    fontSize: 14,
-    fontFamily: 'Raleway-Regular',
-    color: '#666',
-    marginBottom: 4,
-  },
-  selectionValue: {
+  inputText: {
     fontSize: 16,
     fontFamily: 'Raleway-Medium',
     color: '#333',
+  },
+  placeholderText: {
+    color: '#999',
+  },
+  disabledInput: {
+    opacity: 0.7,
   },
   disabledButton: {
     opacity: 0.5,
   },
   sendButton: {
-    backgroundColor: '#007BFF',
+    backgroundColor: '#1E3A8A',
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',

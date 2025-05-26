@@ -1,120 +1,110 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Image, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, Image, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { supabase } from '../../lib/supabase';
 
 const MatchesTab = ({ navigation }) => {
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
 
-  const loadMatches = async () => {
+  useEffect(() => {
+    // Temporarily set static data for testing
+    const staticMatches = [
+      {
+        id: '1',
+        full_name: 'John Doe',
+        profile_images: [
+          { image_url: 'https://via.placeholder.com/150', is_primary: true }
+        ]
+      },
+      {
+        id: '2',
+        full_name: 'Jane Smith',
+        profile_images: [
+          { image_url: 'https://via.placeholder.com/150', is_primary: true }
+        ]
+      }
+    ];
+    setMatches(staticMatches);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    fetchMatches();
+  }, []);
+
+  const fetchMatches = async () => {
     try {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
 
-      // Get all accepted requests where the current user is either the requester or the requested
-      const { data: sentMatches, error: sentError } = await supabase
+      // Step 1: Get the logged-in user ID
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) {
+        console.error('Error fetching user:', userError);
+        setLoading(false);
+        return;
+      }
+
+      console.log('Authenticated user:', user);
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      const userId = user.id;
+
+      // Step 2: Fetch matches where the user is either requester or requested
+      const { data: matches, error: matchesError } = await supabase
         .from('match_requests')
-        .select(`
-          requested_profile:profiles!match_requests_requested_id_fkey (
-            id,
-            full_name,
-            gender,
-            belt_level,
-            height,
-            weight,
-            profile_images (
-              image_url,
-              is_primary
-            )
-          )
-        `)
-        .eq('requester_id', user.id)
+        .select('id, requester_id, requested_id, status')
+        .or(`requester_id.eq.${userId},requested_id.eq.${userId}`)
         .eq('status', 'accepted');
 
-      const { data: receivedMatches, error: receivedError } = await supabase
-        .from('match_requests')
-        .select(`
-          requester:profiles!match_requests_requester_id_fkey (
-            id,
-            full_name,
-            gender,
-            belt_level,
-            height,
-            weight,
-            profile_images (
-              image_url,
-              is_primary
-            )
-          )
-        `)
-        .eq('requested_id', user.id)
-        .eq('status', 'accepted');
+      if (matchesError) {
+        console.error('Error fetching matches:', matchesError);
+        setLoading(false);
+        return;
+      }
 
-      if (sentError || receivedError) throw sentError || receivedError;
+      console.log('Matches:', matches);
 
-      // Combine and format matches
-      const allMatches = [
-        ...(sentMatches || []).map(m => m.requested_profile),
-        ...(receivedMatches || []).map(m => m.requester)
-      ];
+      // Step 3: Extract the IDs of the matched users
+      const matchedUserIds = matches.map(match => {
+        return match.requester_id === userId ? match.requested_id : match.requester_id;
+      });
 
-      setMatches(allMatches);
+      console.log('Matched user IDs:', matchedUserIds);
+
+      // Step 4: Fetch profiles of the matched users
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, full_name, gender, height, weight, belt_level')
+        .in('id', matchedUserIds);
+
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError);
+        setLoading(false);
+        return;
+      }
+
+      console.log('Matched profiles:', profiles);
+
+      // Step 5: Set the matches state with the fetched profiles
+      setMatches(profiles);
     } catch (error) {
-      console.error('Error loading matches:', error.message);
+      console.error('Error in fetchMatches:', error);
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   };
 
-  useEffect(() => {
-    loadMatches();
-    
-    // Set up real-time subscription for match updates
-    const setupSubscription = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const subscription = supabase
-        .channel('matches_changes')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'match_requests',
-            filter: `or(requester_id.eq.${user.id},requested_id.eq.${user.id})`
-          },
-          (payload) => {
-            if (payload.eventType === 'UPDATE' && payload.new.status === 'accepted') {
-              loadMatches(); // Reload matches when a request is accepted
-            }
-          }
-        )
-        .subscribe();
-
-      return () => {
-        subscription.unsubscribe();
-      };
-    };
-
-    setupSubscription();
-  }, []);
-
-  const onRefresh = React.useCallback(() => {
-    setRefreshing(true);
-    loadMatches();
-  }, []);
-
-  const getProfileImage = (profile) => {
-    if (profile.profile_images && profile.profile_images.length > 0) {
-      const primaryImage = profile.profile_images.find(img => img.is_primary);
-      return primaryImage ? primaryImage.image_url : profile.profile_images[0].image_url;
+  const getProfileImage = (item) => {
+    // Check if profile_images exists and has items
+    if (item.profile_images && Array.isArray(item.profile_images) && item.profile_images.length > 0) {
+      // Find primary image or use the first one
+      const primaryImage = item.profile_images.find(img => img && img.is_primary);
+      return primaryImage ? primaryImage.image_url : item.profile_images[0].image_url;
     }
-    return 'https://via.placeholder.com/150';
+    return 'https://via.placeholder.com/150'; // Fallback image
   };
 
   const renderCard = ({ item }) => (
@@ -122,24 +112,27 @@ const MatchesTab = ({ navigation }) => {
       style={styles.card}
       onPress={() => navigation.navigate('UserDetails', { user: item })}
     >
-      <Image source={{ uri: getProfileImage(item) }} style={styles.cardImage} />
-      <View style={styles.cardContent}>
-        <Text style={styles.cardName}>{item.full_name}</Text>
-        <Text style={styles.cardDetail}>{item.belt_level} Belt</Text>
-      </View>
+      <Image 
+        source={{ uri: getProfileImage(item) }} 
+        style={styles.cardImage}
+        resizeMode="cover"
+      />
+      <Text style={styles.cardName}>
+        {item.full_name?.split(' ')[0] || 'User'}
+      </Text>
     </TouchableOpacity>
   );
 
-  if (loading && !refreshing) {
+  if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#000" />
+        <ActivityIndicator size="large" color="#0C2252" />
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       {matches.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>No matches yet</Text>
@@ -148,33 +141,31 @@ const MatchesTab = ({ navigation }) => {
           </Text>
         </View>
       ) : (
-        <FlatList
-          data={matches}
-          renderItem={renderCard}
-          keyExtractor={(item) => item.id}
-          numColumns={2}
-          contentContainerStyle={styles.listContainer}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-        />
+        <View style={styles.pageContainer}>
+          <Text style={styles.headerText}>Your Matches</Text>
+          <FlatList
+            data={matches}
+            renderItem={renderCard}
+            keyExtractor={(item) => item.id.toString()}
+            numColumns={2}
+            contentContainerStyle={styles.listContainer}
+            columnWrapperStyle={styles.columnWrapper}
+          />
+        </View>
       )}
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#f8f8f8',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  listContainer: {
-    padding: 8,
   },
   emptyContainer: {
     flex: 1,
@@ -193,37 +184,49 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
   },
-  card: {
+  pageContainer: {
     flex: 1,
-    margin: 8,
-    borderRadius: 12,
+    padding: 16,
+  },
+  headerText: {
+    fontSize: 22,
+    fontFamily: 'Raleway-Bold',
+    marginBottom: 16,
+    marginLeft: 8,
+  },
+  listContainer: {
+    paddingBottom: 20,
+  },
+  columnWrapper: {
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  card: {
+    width: '48%',
+    borderRadius: 8,
+    overflow: 'hidden',
     backgroundColor: '#fff',
+    alignItems: 'center',
+    marginBottom: 16,
+    elevation: 3,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3,
-    overflow: 'hidden',
   },
   cardImage: {
     width: '100%',
     aspectRatio: 1,
-  },
-  cardContent: {
-    padding: 12,
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
   },
   cardName: {
+    marginTop: 8,
+    marginBottom: 8,
     fontSize: 16,
-    fontFamily: 'Raleway-Bold',
-    marginBottom: 4,
-  },
-  cardDetail: {
-    fontSize: 14,
-    fontFamily: 'Raleway-Regular',
-    color: '#666',
+    fontFamily: 'Raleway-Medium',
+    textAlign: 'center',
+    color: '#333',
   },
 });
 

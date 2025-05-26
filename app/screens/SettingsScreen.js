@@ -1,5 +1,6 @@
 import * as React from 'react';
-import { View, Image, Text, StyleSheet } from 'react-native';
+import { View, Image, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView } from 'react-native';
+import { supabase } from '../lib/supabase';
 
 function SettingsOption({ text, imageUri }) {
   return (
@@ -23,11 +24,11 @@ function SupportOption({ text, imageUri }) {
   );
 }
 
-function LogoutButton({ text }) {
+function LogoutButton({ text, onPress }) {
   return (
-    <View style={styles.buttonContainer}>
+    <TouchableOpacity style={styles.buttonContainer} onPress={onPress}>
       <Text>{text}</Text>
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -37,55 +38,66 @@ function SettingsScreen({ navigation }) {
     { text: 'FAQs', uri: 'https://cdn.builder.io/api/v1/image/assets/TEMP/c6efd9a410d0e845982ee90f5c5b0520173e2273ceb7305ee79827c1e5d7a198' },
   ];
   
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Auth' }],
+      });
+    } catch (error) {
+      alert('Error logging out: ' + error.message);
+    }
+  };
+
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Image
-          resizeMode="contain"
-          source={{ uri: 'https://cdn.builder.io/api/v1/image/assets/TEMP/ae214b6455abf99f6088d70155089396a6350c60df84f4f10678c7907c8706cb' }}
-          style={styles.headerImage}
-        />
-        <View style={styles.headerTextContainer}>
-          <Text>Settings</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+        <View style={styles.header}>
+          <Image
+            resizeMode="contain"
+            source={{ uri: 'https://cdn.builder.io/api/v1/image/assets/TEMP/ae214b6455abf99f6088d70155089396a6350c60df84f4f10678c7907c8706cb' }}
+            style={styles.headerImage}
+          />
+          <View style={styles.headerTextContainer}>
+            <Text>Settings</Text>
+          </View>
         </View>
-      </View>
-      <View style={styles.content}>
-        <Text style={styles.sectionTitle}>General</Text>
-        <SettingsOption text="Account Information" imageUri="https://cdn.builder.io/api/v1/image/assets/TEMP/cf8866582bd383b76e6779e2802aba86bcbb5e971d546742a2478e2aa152951c" />
-        <View style={styles.separator}/>
-        <SettingsOption text="Address Information" imageUri="https://cdn.builder.io/api/v1/image/assets/TEMP/cf8866582bd383b76e6779e2802aba86bcbb5e971d546742a2478e2aa152951c" />
-        <View style={styles.separator}/>
-        <SettingsOption text="Payment Information" imageUri="https://cdn.builder.io/api/v1/image/assets/TEMP/cf8866582bd383b76e6779e2802aba86bcbb5e971d546742a2478e2aa152951c" />
-        <View style={styles.separator}/>
-        <Text style={styles.sectionTitle}>Support</Text>
-        <View style={styles.supportContainer}>
-          {supportOptions.map((option, index) => (
-            <React.Fragment key={index}>
-              <SupportOption text={option.text} imageUri={option.uri} />
-              {index < supportOptions.length - 1 && <View style={styles.supportSeparator}/>} 
-            </React.Fragment>
-          ))}
+        <View style={styles.content}>
+          <Text style={styles.sectionTitle}>General</Text>
+          <SettingsOption text="Account Information" imageUri="https://cdn.builder.io/api/v1/image/assets/TEMP/cf8866582bd383b76e6779e2802aba86bcbb5e971d546742a2478e2aa152951c" />
+          <View style={styles.separator}/>
+          <SettingsOption text="Address Information" imageUri="https://cdn.builder.io/api/v1/image/assets/TEMP/cf8866582bd383b76e6779e2802aba86bcbb5e971d546742a2478e2aa152951c" />
+          <View style={styles.separator}/>
+          <SettingsOption text="Payment Information" imageUri="https://cdn.builder.io/api/v1/image/assets/TEMP/cf8866582bd383b76e6779e2802aba86bcbb5e971d546742a2478e2aa152951c" />
+          <View style={styles.separator}/>
+          <Text style={styles.sectionTitle}>Support</Text>
+          <View style={styles.supportContainer}>
+            {supportOptions.map((option, index) => (
+              <React.Fragment key={index}>
+                <SupportOption text={option.text} imageUri={option.uri} />
+                {index < supportOptions.length - 1 && <View style={styles.supportSeparator}/>} 
+              </React.Fragment>
+            ))}
+          </View>
+          <LogoutButton text="Logout" onPress={handleLogout} />
         </View>
-        <LogoutButton text="Logout" />
-      </View>
-    </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
   container: {
-    borderRadius: 20,
-    marginLeft: 'auto',
-    marginRight: 'auto',
-    maxWidth: 480,
-    width: '100%',
-    paddingBottom: 21,
-    flexDirection: 'column',
-    overflow: 'hidden',
-    alignItems: 'stretch',
-    fontFamily: 'Inter, sans-serif',
-    color: '#000',
-    textTransform: 'capitalize',
+    flex: 1,
+  },
+  contentContainer: {
+    paddingBottom: 100, // Extra padding at the bottom to ensure visibility
   },
   header: {
     backgroundColor: '#F2F2F7',
@@ -145,7 +157,8 @@ const styles = StyleSheet.create({
     borderColor: '#F2F2F7',
     backgroundColor: '#D1D1D6',
     alignSelf: 'center',
-    marginTop: 152,
+    marginTop: 40, // Reduced from 152 to 40
+    marginBottom: 30, // Added bottom margin
     width: '100%',
     maxWidth: 311,
     paddingVertical: 14,

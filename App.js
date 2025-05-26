@@ -5,6 +5,7 @@ import AuthNavigator from './app/navigation/AuthNavigator';
 import MainNavigator from './app/navigation/MainNavigator';
 import { View, ActivityIndicator } from 'react-native';
 import { useFonts } from 'expo-font';
+import { SessionProvider } from './app/context/SessionContext';
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -17,18 +18,32 @@ export default function App() {
   });
 
   useEffect(() => {
+    console.log('Initializing app...'); // Debug log
+
     // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error('Error fetching session:', error.message); // Debug log
+      } else {
+        console.log('Session fetched successfully:', session); // Debug log
+      }
       setSession(session);
       setLoading(false);
+    }).catch((err) => {
+      console.error('Unexpected error fetching session:', err); // Debug log
+      setLoading(false); // Ensure loading state is cleared
     });
 
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log('Auth state changed. New session:', session); // Debug log
       setSession(session);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      console.log('Cleaning up auth state change subscription...'); // Debug log
+      subscription.unsubscribe();
+    };
   }, []);
 
   if (!fontsLoaded || loading) {
@@ -40,8 +55,10 @@ export default function App() {
   }
 
   return (
-    <NavigationContainer>
-      {session ? <MainNavigator /> : <AuthNavigator />}
-    </NavigationContainer>
+    <SessionProvider>
+      <NavigationContainer>
+        {session ? <MainNavigator /> : <AuthNavigator />}
+      </NavigationContainer>
+    </SessionProvider>
   );
 }
