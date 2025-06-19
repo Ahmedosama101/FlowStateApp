@@ -51,9 +51,7 @@ export default function RequestsTab() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      console.log('Fetching sent requests for user:', user.id);
-
-      const { data, error } = await supabase
+      console.log('Fetching sent requests for user:', user.id);      const { data, error } = await supabase
         .from('match_requests')
         .select(`
           *,
@@ -74,20 +72,57 @@ export default function RequestsTab() {
         throw error;
       }
 
-      console.log('Fetched sent requests:', data);
-      setSentRequests(data || []);
+      // Get all requested user IDs
+      const requestedUserIds = data.map(request => request.requested_id);
+      
+      // Fetch primary profile images for the requested users
+      const { data: profileImages, error: profileImagesError } = await supabase
+        .from('profile_images')
+        .select('profile_id, image_url')
+        .in('profile_id', requestedUserIds)
+        .eq('is_primary', true);
+        
+      if (profileImagesError) {
+        console.error('Error fetching profile images:', profileImagesError);
+      }
+      
+      // Create a map of profile_id to image URL
+      const profileImageMap = {};
+      if (profileImages && profileImages.length > 0) {
+        profileImages.forEach(image => {
+          profileImageMap[image.profile_id] = image.image_url;
+        });
+      }
+      
+      // Add primary image URL to each request's requested profile
+      const requestsWithImages = data.map(request => ({
+        ...request,
+        requested_profile: {
+          ...request.requested_profile,
+          primaryImageUrl: profileImageMap[request.requested_id] || null
+        }
+      }));
+
+      console.log('Fetched sent requests:', requestsWithImages);
+      setSentRequests(requestsWithImages || []);
     } catch (error) {
       console.error('Error loading sent requests:', error.message);
     } finally {
       setLoading(false);
     }
   };
-
   const getProfileImage = (profile) => {
+    // First check if we have the primary image from our direct query
+    if (profile.primaryImageUrl) {
+      return profile.primaryImageUrl;
+    }
+    
+    // Fallback to check if profile_images exists and has items
     if (profile.profile_images && profile.profile_images.length > 0) {
       const primaryImage = profile.profile_images.find(img => img.is_primary);
       return primaryImage ? primaryImage.image_url : profile.profile_images[0].image_url;
     }
+    
     return 'https://via.placeholder.com/100';
   };
 

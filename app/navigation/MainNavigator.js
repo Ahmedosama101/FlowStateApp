@@ -13,9 +13,11 @@ const Tab = createBottomTabNavigator();
 
 export default function MainNavigator() {
   return (
-    <Tab.Navigator
-      screenOptions={({ route }) => ({
+    <Tab.Navigator      screenOptions={({ route }) => ({
         headerShown: false,
+        contentStyle: {
+          paddingBottom: 90, // Add padding at the bottom equal to tab bar height
+        },
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
 
@@ -50,13 +52,11 @@ export default function MainNavigator() {
               <Icon name={iconName} size={size} color={focused ? '#FFFFFF' : color} />
             </View>
           );
-        },
-        tabBarStyle: {
+        },        tabBarStyle: {
           height: 90,
           backgroundColor: '#0C2252',
           borderTopLeftRadius: 20,
           borderTopRightRadius: 20,
-          position: 'absolute',
           overflow: 'hidden',
         },
         tabBarShowLabel: false, // Hide labels to show only icons

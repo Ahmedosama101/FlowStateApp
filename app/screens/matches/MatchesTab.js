@@ -72,9 +72,7 @@ const MatchesTab = ({ navigation }) => {
         return match.requester_id === userId ? match.requested_id : match.requester_id;
       });
 
-      console.log('Matched user IDs:', matchedUserIds);
-
-      // Step 4: Fetch profiles of the matched users
+      console.log('Matched user IDs:', matchedUserIds);      // Step 4: Fetch profiles of the matched users
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('id, full_name, gender, height, weight, belt_level')
@@ -86,25 +84,56 @@ const MatchesTab = ({ navigation }) => {
         return;
       }
 
-      console.log('Matched profiles:', profiles);
+      // Step 5: Fetch primary profile images for all matched users
+      const { data: profileImages, error: profileImagesError } = await supabase
+        .from('profile_images')
+        .select('profile_id, image_url')
+        .in('profile_id', matchedUserIds)
+        .eq('is_primary', true);
 
-      // Step 5: Set the matches state with the fetched profiles
-      setMatches(profiles);
+      if (profileImagesError) {
+        console.error('Error fetching profile images:', profileImagesError);
+      }
+
+      // Create a map of profile_id to primary image
+      const profileImageMap = {};
+      if (profileImages && profileImages.length > 0) {
+        profileImages.forEach(image => {
+          profileImageMap[image.profile_id] = image.image_url;
+        });
+      }
+
+      // Add primary image URLs to profile objects
+      const profilesWithImages = profiles.map(profile => ({
+        ...profile,
+        primaryImageUrl: profileImageMap[profile.id] || null
+      }));
+
+      console.log('Matched profiles with images:', profilesWithImages);
+
+      // Step 6: Set the matches state with the fetched profiles and images
+      setMatches(profilesWithImages);
     } catch (error) {
       console.error('Error in fetchMatches:', error);
     } finally {
       setLoading(false);
     }
   };
-
   const getProfileImage = (item) => {
-    // Check if profile_images exists and has items
+    // First check if we have a primary image from our direct query
+    if (item.primaryImageUrl) {
+      return item.primaryImageUrl;
+    }
+    
+    // Fallback to checking profile_images array if it exists
     if (item.profile_images && Array.isArray(item.profile_images) && item.profile_images.length > 0) {
       // Find primary image or use the first one
       const primaryImage = item.profile_images.find(img => img && img.is_primary);
       return primaryImage ? primaryImage.image_url : item.profile_images[0].image_url;
     }
-    return 'https://via.placeholder.com/150'; // Fallback image
+    
+    // Default fallback image
+    return 'https://via.placeholder.com/150';
   };
 
   const renderCard = ({ item }) => (

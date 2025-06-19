@@ -77,9 +77,7 @@ export default function PeopleTab({ navigation }) {
             userIdsToExclude.push(match.requester_id);
           }
         });
-      }
-
-      // Fetch profiles excluding the current user and users with any match request
+      }      // Fetch profiles excluding the current user and users with any match request
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select(`
@@ -93,23 +91,46 @@ export default function PeopleTab({ navigation }) {
 
       if (profilesError) {
         throw profilesError;
-      }
-
-      // Filter out excluded user IDs
+      }      // Filter out excluded user IDs
       const filteredProfiles = profiles.filter(profile => !userIdsToExclude.includes(profile.id));
-
-      // Format profiles for display
+      
+      // Fetch only primary profile images for all filtered profiles
+      const profileIds = filteredProfiles.map(profile => profile.id);
+      const { data: profileImages, error: profileImagesError } = await supabase
+        .from('profile_images')
+        .select('profile_id, image_url')
+        .in('profile_id', profileIds)
+        .eq('is_primary', true);
+        
+      if (profileImagesError) {
+        console.error('Error fetching profile images:', profileImagesError);
+      }
+      
+      // Create a map of profile_id to primary image URL
+      const primaryImageByProfileId = {};
+      if (profileImages && profileImages.length > 0) {
+        profileImages.forEach(image => {
+          primaryImageByProfileId[image.profile_id] = image.image_url;
+        });
+      }      // Format profiles for display
       const formattedProfiles = filteredProfiles
         .filter(profile => profile.full_name) // Only include profiles with names
-        .map(profile => ({
-          id: profile.id,
-          name: profile.full_name,
-          images: ['https://via.placeholder.com/150'],
-          gender: profile.gender || 'Unknown',
-          height: profile.height || 'Not specified',
-          weight: profile.weight || 'Not specified',
-          belt: profile.belt_level || 'Unknown'
-        }));
+        .map(profile => {
+          // Get primary image for this profile or use placeholder if none exists
+          const primaryImageUrl = primaryImageByProfileId[profile.id];
+          // If user has a primary image, use it; otherwise use placeholder
+          const images = primaryImageUrl ? [primaryImageUrl] : ['https://via.placeholder.com/150'];
+            
+          return {
+            id: profile.id,
+            name: profile.full_name,
+            images: images,
+            gender: profile.gender || 'Unknown',
+            height: profile.height || 'Not specified',
+            weight: profile.weight || 'Not specified',
+            belt: profile.belt_level || 'Unknown'
+          };
+        });
 
       setAvailableUsers(formattedProfiles);
       
@@ -265,8 +286,7 @@ export default function PeopleTab({ navigation }) {
   return (
     <ErrorBoundary>
       <View style={styles.container}>
-        {availableUsers.length > 0 ? (
-          <Swiper
+        {availableUsers.length > 0 ? (          <Swiper
             cards={availableUsers}
             renderCard={renderCard}
             onSwipedRight={handleSwipeRight}
@@ -274,8 +294,10 @@ export default function PeopleTab({ navigation }) {
             backgroundColor={'transparent'}
             stackSize={3}
             stackSeparation={12}
-            cardVerticalMargin={15}
+            cardVerticalMargin={5}
             cardHorizontalMargin={10}
+            verticalSwipe={true}
+            containerStyle={{alignItems: 'center', justifyContent: 'center'}}
             animateOverlayLabelsOpacity
             animateCardOpacity
             swipeBackCard
@@ -331,7 +353,9 @@ export default function PeopleTab({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5'
+    backgroundColor: '#F5F5F5',
+    justifyContent: 'center',
+    alignItems: 'center'
   },
   loadingContainer: {
     flex: 1,
@@ -348,15 +372,14 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontFamily: 'Raleway-Bold',
     marginBottom: 8,
-  },
-  emptySubtext: {
+  },  emptySubtext: {
     fontSize: 16,
     fontFamily: 'Raleway-Regular',
     color: '#666',
     textAlign: 'center',
   },  card: {
-    width: width * 0.85,
-    height: height * 0.65,
+    width: width * 0.9,
+    height: height * 0.62,
     borderRadius: 20,
     backgroundColor: '#fff',
     shadowColor: '#000',
@@ -365,30 +388,28 @@ const styles = StyleSheet.create({
       height: 2,
     },
     shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowRadius: 3.84,    elevation: 5,
     overflow: 'hidden'
   },  image: {
     width: '100%',
-    height: '60%',
+    height: '55%',
     resizeMode: 'cover'
   },  cardContent: {
-    padding: 12
-  },
-  name: {
-    fontSize: 22,
+    padding: 16
+  },name: {
+    fontSize: 26,
     fontFamily: 'Raleway-Bold',
-    marginBottom: 6
+    marginBottom: 10
   },  detailsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between'
   },
   detail: {
-    fontSize: 14,
+    fontSize: 18,
     fontFamily: 'Raleway-Regular',
     color: '#666',
-    marginVertical: 3,
+    marginVertical: 5,
     flexBasis: '48%'
   },
   modalContainer: {

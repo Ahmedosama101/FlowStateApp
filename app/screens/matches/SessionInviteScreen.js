@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Image, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { supabase } from '../../lib/supabase';
@@ -9,6 +9,7 @@ export default function SessionInviteScreen({ navigation, route }) {
   const [selectedGym, setSelectedGym] = useState(null);
   const [selectedDateTime, setSelectedDateTime] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [profileImage, setProfileImage] = useState(partnerImage || null);
 
   useEffect(() => {
     // Check and refresh session when component mounts
@@ -27,6 +28,33 @@ export default function SessionInviteScreen({ navigation, route }) {
     };
     
     checkSession();
+    
+    // If we don't have a profile image yet, fetch it
+    if (!profileImage && partnerId) {
+      const fetchProfileImage = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('profile_images')
+            .select('image_url')
+            .eq('profile_id', partnerId)
+            .eq('is_primary', true)
+            .single();
+            
+          if (error) {
+            console.error('Error fetching partner profile image:', error);
+            return;
+          }
+          
+          if (data) {
+            setProfileImage(data.image_url);
+          }
+        } catch (error) {
+          console.error('Error in fetchProfileImage:', error);
+        }
+      };
+      
+      fetchProfileImage();
+    }
   }, []);
 
   const handleGymSelection = () => {
@@ -168,10 +196,10 @@ export default function SessionInviteScreen({ navigation, route }) {
         <Text style={styles.headerTitle}>Session invite</Text>
       </View>
 
-      <View style={styles.content}>
+      <ScrollView style={styles.content} contentContainerStyle={styles.contentScrollContainer}>        
         <View style={styles.userCard}>
           <Image 
-            source={{ uri: partnerImage || 'https://via.placeholder.com/150' }} 
+            source={{ uri: profileImage || partnerImage || 'https://via.placeholder.com/150' }} 
             style={styles.userImage} 
           />
           <Text style={styles.userName}>{partnerName || 'Partner'}</Text>
@@ -215,7 +243,7 @@ export default function SessionInviteScreen({ navigation, route }) {
             <Text style={styles.sendButtonText}>Send Invite</Text>
           )}
         </TouchableOpacity>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -245,7 +273,11 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  contentScrollContainer: {
+    flexGrow: 1,
     paddingHorizontal: 20,
+    paddingBottom: 30,
   },
   userCard: {
     flexDirection: 'row',

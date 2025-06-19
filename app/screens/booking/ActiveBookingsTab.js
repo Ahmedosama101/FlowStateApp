@@ -230,9 +230,7 @@ function BookingsList({ navigation }) {
         ...allUserBookings.map(b => b.receiver_id)
       ])];
 
-      console.log('Getting profiles for user IDs:', userIds);
-
-      // Get user profiles with more debugging
+      console.log('Getting profiles for user IDs:', userIds);      // Get user profiles with more debugging
       const { data: usersData, error: usersError } = await supabase
         .from('profiles')
         .select('id, email, full_name')
@@ -240,6 +238,25 @@ function BookingsList({ navigation }) {
 
       if (usersError) {
         console.error('Error fetching profiles:', usersError);
+      }
+
+      // Fetch primary profile images for all users
+      const { data: profileImages, error: profileImagesError } = await supabase
+        .from('profile_images')
+        .select('profile_id, image_url')
+        .in('profile_id', userIds)
+        .eq('is_primary', true);
+        
+      if (profileImagesError) {
+        console.error('Error fetching profile images:', profileImagesError);
+      }
+      
+      // Create a map of profile_id to image URL
+      const profileImageMap = {};
+      if (profileImages && profileImages.length > 0) {
+        profileImages.forEach(image => {
+          profileImageMap[image.profile_id] = image.image_url;
+        });
       }
 
       console.log('Retrieved profiles:', usersData);
@@ -250,7 +267,10 @@ function BookingsList({ navigation }) {
       if (usersData && usersData.length > 0) {
         usersData.forEach(userData => {
           if (userData && userData.id) {
-            usersMap.set(userData.id, userData);
+            usersMap.set(userData.id, {
+              ...userData,
+              profile_image_url: profileImageMap[userData.id] || null
+            });
             console.log(`Mapped user ${userData.id} to ${userData.full_name || userData.email}`);
           }
         });

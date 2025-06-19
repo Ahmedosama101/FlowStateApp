@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, Dimensions, Modal } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, Dimensions, Modal, ScrollView } from 'react-native';
 import { createStackNavigator } from '@react-navigation/stack';
 import Icon from 'react-native-vector-icons/FontAwesome';
 
@@ -136,7 +136,7 @@ function GymDetails({ route, navigation }) {
   );
 
   return (
-    <View style={styles.detailsContainer}>
+    <ScrollView style={styles.detailsContainer} contentContainerStyle={styles.detailsScrollContent}>
       <TouchableOpacity 
         onPress={() => {
           setCurrentImageIndex(0);
@@ -194,7 +194,7 @@ function GymDetails({ route, navigation }) {
         </View>
       </View>
       <ImageGallery />
-    </View>
+    </ScrollView>
   );
 }
 
@@ -291,6 +291,10 @@ const styles = StyleSheet.create({
   detailsContainer: {
     flex: 1,
     backgroundColor: '#fff',
+  },
+  detailsScrollContent: {
+    flexGrow: 1,
+    paddingBottom: 20,
   },
   detailImage: {
     width: width,

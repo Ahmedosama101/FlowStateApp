@@ -102,9 +102,7 @@ export default function BookingInvitesTab() {
 
       // Then get all sender user details in one query
       const senderIds = [...new Set(invitesData.map(invite => invite.sender_id))];
-      console.log('Getting details for senders:', senderIds);
-
-      // Try to get user profiles from the profiles table instead
+      console.log('Getting details for senders:', senderIds);      // Try to get user profiles from the profiles table instead
       const { data: sendersData, error: sendersError } = await supabase
         .from('profiles')
         .select('id, email, full_name')
@@ -128,10 +126,35 @@ export default function BookingInvitesTab() {
         return;
       }
 
+      // Fetch primary profile images for all senders
+      const { data: profileImages, error: profileImagesError } = await supabase
+        .from('profile_images')
+        .select('profile_id, image_url')
+        .in('profile_id', senderIds)
+        .eq('is_primary', true);
+        
+      if (profileImagesError) {
+        console.error('Error fetching profile images:', profileImagesError);
+      }
+      
+      // Create a map of profile_id to image URL
+      const profileImageMap = {};
+      if (profileImages && profileImages.length > 0) {
+        profileImages.forEach(image => {
+          profileImageMap[image.profile_id] = image.image_url;
+        });
+      }
+
       console.log('Retrieved sender data:', sendersData);
 
-      // Create a map of sender data for quick lookup
-      const sendersMap = new Map(sendersData.map(sender => [sender.id, sender]));
+      // Create a map of sender data for quick lookup and add profile images
+      const sendersMap = new Map(sendersData.map(sender => [
+        sender.id, 
+        {
+          ...sender,
+          profile_image_url: profileImageMap[sender.id] || null
+        }
+      ]));
 
       // Combine the data
       const enrichedInvites = invitesData.map(invite => ({
@@ -139,7 +162,8 @@ export default function BookingInvitesTab() {
         sender: sendersMap.get(invite.sender_id) || { 
           id: invite.sender_id,
           email: 'Unknown User',
-          full_name: 'Unknown User'
+          full_name: 'Unknown User',
+          profile_image_url: null
         }
       }));
 

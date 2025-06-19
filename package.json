@@ -54,7 +54,15 @@
   "devDependencies": {
     "@babel/core": "^7.20.0",
     "@react-native-community/cli": "^18.0.0",
+    "@react-native-community/cli-platform-android": "^18.0.0",
+    "@react-native-community/cli-platform-ios": "^18.0.0",
     "babel-plugin-module-resolver": "^5.0.2"
+  },
+   "overrides": {
+    "react-native-appwrite": {
+      "expo-file-system": "18.*.*",
+      "react-native": ">=0.76.7 <1.0.0"
+    }
   },
   "private": true
 }

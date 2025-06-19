@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, ScrollView } from 'react-native';
 import { createStackNavigator } from '@react-navigation/stack';
 import Icon from 'react-native-vector-icons/FontAwesome';
 
@@ -91,7 +91,7 @@ function HistoryDetailScreen({ route, navigation }) {
   };
 
   return (
-    <View style={styles.detailContainer}>
+    <ScrollView style={styles.detailContainer} contentContainerStyle={styles.detailScrollContent}>
       <TouchableOpacity 
         style={styles.backButton} 
         onPress={() => navigation.goBack()}
@@ -129,7 +129,7 @@ function HistoryDetailScreen({ route, navigation }) {
           <Text style={styles.sectionContent}>{booking.notes}</Text>
         </View>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -219,6 +219,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
     padding: 16,
+  },
+  detailScrollContent: {
+    flexGrow: 1,
+    paddingBottom: 30,
   },
   backButton: {
     marginBottom: 16,

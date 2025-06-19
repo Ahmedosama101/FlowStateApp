@@ -46,7 +46,6 @@ const MatchInvitesTab = ({ navigation }) => {
 
     setupSubscription();
   }, []);
-
   const loadReceivedRequests = async () => {
     try {
       setLoading(true);
@@ -76,8 +75,39 @@ const MatchInvitesTab = ({ navigation }) => {
         throw error;
       }
 
-      console.log('Fetched received requests:', data);
-      setReceivedRequests(data || []);
+      // Get all requester user IDs
+      const requesterIds = data.map(request => request.requester_id);
+      
+      // Fetch primary profile images for the requester users
+      const { data: profileImages, error: profileImagesError } = await supabase
+        .from('profile_images')
+        .select('profile_id, image_url')
+        .in('profile_id', requesterIds)
+        .eq('is_primary', true);
+        
+      if (profileImagesError) {
+        console.error('Error fetching profile images:', profileImagesError);
+      }
+      
+      // Create a map of profile_id to image URL
+      const profileImageMap = {};
+      if (profileImages && profileImages.length > 0) {
+        profileImages.forEach(image => {
+          profileImageMap[image.profile_id] = image.image_url;
+        });
+      }
+      
+      // Add primary image URL to each request's requester profile
+      const requestsWithImages = data.map(request => ({
+        ...request,
+        requester: {
+          ...request.requester,
+          primaryImageUrl: profileImageMap[request.requester_id] || null
+        }
+      }));
+
+      console.log('Fetched received requests:', requestsWithImages);
+      setReceivedRequests(requestsWithImages || []);
     } catch (error) {
       console.error('Error loading received requests:', error.message);
     } finally {
@@ -136,9 +166,7 @@ const MatchInvitesTab = ({ navigation }) => {
         current.map(request =>
           request.id === requestId ? { ...request, status } : request
         )
-      );
-
-      // If request was accepted, navigate to session invite screen
+      );      // If request was accepted, navigate to session invite screen
       if (status === 'accepted') {
         // Navigate to the session invite screen with the requester's info
         const matchedRequest = receivedRequests.find(r => r.id === requestId);
@@ -146,7 +174,8 @@ const MatchInvitesTab = ({ navigation }) => {
           navigation.navigate('SessionInvite', {
             partnerId: matchedRequest.requester_id,
             partnerName: matchedRequest.requester.full_name,
-            matchRequestId: requestId
+            matchRequestId: requestId,
+            partnerImage: matchedRequest.requester.primaryImageUrl || getProfileImage(matchedRequest.requester)
           });
         }
       }
@@ -155,12 +184,18 @@ const MatchInvitesTab = ({ navigation }) => {
       Alert.alert('Error', 'Failed to process your response. Please try again.');
     }
   };
-
   const getProfileImage = (profile) => {
+    // First check if we have the primary image from our direct query
+    if (profile.primaryImageUrl) {
+      return profile.primaryImageUrl;
+    }
+    
+    // Fallback to check if profile_images exists and has items
     if (profile.profile_images && profile.profile_images.length > 0) {
       const primaryImage = profile.profile_images.find(img => img.is_primary);
       return primaryImage ? primaryImage.image_url : profile.profile_images[0].image_url;
     }
+    
     return 'https://via.placeholder.com/100';
   };
 

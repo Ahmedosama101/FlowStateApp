@@ -11,7 +11,12 @@ module.exports = function (api) {
         "safe": false,
         "allowUndefined": true
       }],
-      'react-native-reanimated/plugin', // Add this plugin for react-native-reanimated
+      "react-native-reanimated/plugin",
+        ["module-resolver", {
+          alias: {
+            "^react-native$": "react-native"
+          }
+        }] // Add this plugin for react-native-reanimated
     ]
   };
 };

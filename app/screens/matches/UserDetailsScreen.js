@@ -1,10 +1,45 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/FontAwesome';
+import { supabase } from '../../lib/supabase';
 
 export default function UserDetailsScreen({ route, navigation }) {
   const { user } = route.params;
+  const [profileImage, setProfileImage] = useState(null);
+  
+  useEffect(() => {
+    // If user already has a primary image URL from previous screen, use it
+    if (user.primaryImageUrl) {
+      setProfileImage(user.primaryImageUrl);
+      return;
+    }
+    
+    // Otherwise fetch it from the database
+    const fetchProfileImage = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('profile_images')
+          .select('image_url')
+          .eq('profile_id', user.id)
+          .eq('is_primary', true)
+          .single();
+          
+        if (error) {
+          console.error('Error fetching profile image:', error);
+          return;
+        }
+        
+        if (data) {
+          setProfileImage(data.image_url);
+        }
+      } catch (error) {
+        console.error('Error in fetchProfileImage:', error);
+      }
+    };
+    
+    fetchProfileImage();
+  }, [user.id]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -16,9 +51,8 @@ export default function UserDetailsScreen({ route, navigation }) {
           <Icon name="arrow-left" size={24} color="#333" />
         </TouchableOpacity>
 
-        <View style={styles.profileCard}>
-          <Image 
-            source={{ uri: user.profile_images?.[0]?.image_url || 'https://via.placeholder.com/150' }} 
+        <View style={styles.profileCard}>        <Image 
+            source={{ uri: profileImage || user.profile_images?.[0]?.image_url || 'https://via.placeholder.com/150' }} 
             style={styles.profileImage}
           />
           
@@ -49,12 +83,12 @@ export default function UserDetailsScreen({ route, navigation }) {
             <View style={[styles.beltIndicator, {backgroundColor: user.belt_color || getBeltColor(user.belt_level)}]} />
             <Text style={styles.beltText}>{user.belt_level || 'Brown'}</Text>
           </View>
-          
-          <TouchableOpacity 
+            <TouchableOpacity 
             style={styles.sessionButton}
             onPress={() => navigation.navigate('SessionInvite', {
               partnerId: user.id,
-              partnerName: user.full_name
+              partnerName: user.full_name,
+              partnerImage: profileImage || user.profile_images?.[0]?.image_url || 'https://via.placeholder.com/150'
             })}
           >
             <Text style={styles.sessionButtonText}>Send session invite</Text>
