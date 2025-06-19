@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, SafeAreaView } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, SafeAreaView, Image } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { supabase } from '../lib/supabase';
-import { CommonActions } from '@react-navigation/native';
+import { CommonActions, useFocusEffect } from '@react-navigation/native';
 
-export default function ProfileScreen({ navigation }) {
+export default function ProfileScreen({ navigation, route }) {
   const [fontsLoaded] = useFonts({
     'Raleway-Regular': require('../assets/fonts/Raleway-Regular.ttf'),
     'Raleway-Medium': require('../assets/fonts/Raleway-Medium.ttf'),
@@ -31,10 +31,18 @@ export default function ProfileScreen({ navigation }) {
     country: 'Not set'
   });
 
+  // Refresh profile when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('Profile screen focused, refreshing data');
+      getUserProfile();
+      return () => {}; // cleanup function
+    }, [])
+  );
+
   useEffect(() => {
     getUserProfile();
   }, []);
-
   const getUserProfile = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -47,6 +55,34 @@ export default function ProfileScreen({ navigation }) {
         
         if (error) throw error;
         if (data) {
+          // Fetch profile image
+          let profileImageUrl = data.profile_image_url;
+          
+          if (!profileImageUrl) {
+            // Try to get from profile_images table if not in profiles
+            const { data: imageData, error: imageError } = await supabase
+              .from('profile_images')
+              .select('image_url')
+              .eq('profile_id', user.id)
+              .eq('is_primary', true)
+              .order('updated_at', { ascending: false })
+              .limit(1);
+              
+            if (!imageError && imageData && imageData.length > 0) {
+              profileImageUrl = imageData[0].image_url;
+              
+              // Update the profile with the found image URL
+              const { error: updateError } = await supabase
+                .from('profiles')
+                .update({ profile_image_url: profileImageUrl })
+                .eq('id', user.id);
+                
+              if (updateError) {
+                console.error('Error updating profile with image URL:', updateError);
+              }
+            }
+          }
+          
           setUserData({
             id: user.id, // Add the user ID so it's available in EditProfileScreen
             fullName: data.full_name || '',
@@ -56,6 +92,7 @@ export default function ProfileScreen({ navigation }) {
             gender: data.gender,
             weight: data.weight,
             height: data.height,
+            profile_image_url: profileImageUrl,
             // Include age as a calculated property
             age: calculateAge(data.date_of_birth).replace(' years', '')
           });
@@ -133,6 +170,32 @@ export default function ProfileScreen({ navigation }) {
             <Icon name="edit" size={20} color="#000" />
             <Text style={styles.editButtonText}>Edit</Text>
           </TouchableOpacity>
+        </View>        <View style={styles.profileImageContainer}>
+          {userData.profile_image_url ? (
+            <>
+              <Text style={styles.imageUrl}>{userData.profile_image_url?.substring(0, 25)}...</Text>
+              
+              {/* Clean image loading with cache busting */}
+              <Image 
+                source={{ 
+                  uri: `${userData.profile_image_url}?t=${new Date().getTime()}`,
+                }}
+                style={styles.profileImage}
+                onError={(e) => {
+                  console.error('Image loading error:', e.nativeEvent.error);
+                }}
+                onLoad={() => console.log('Image loaded successfully')}
+              />
+            </>
+          ) : (
+            <>
+              <Image 
+                source={require('../assets/black.png')}
+                style={styles.profileImage}
+              />
+              <Text style={styles.imageUrl}>No profile image set</Text>
+            </>
+          )}
         </View>
 
         <View style={styles.section}>
@@ -148,7 +211,7 @@ export default function ProfileScreen({ navigation }) {
             <InfoItem label="Height" value={userData.height ? `${userData.height} cm` : 'Not set'} />
           </View>
         </View>
-
+{/* 
         <View style={styles.section}>
           <View style={styles.addressHeader}>
             <Text style={styles.sectionTitle}>Address Information</Text>
@@ -168,12 +231,20 @@ export default function ProfileScreen({ navigation }) {
             <InfoItem label="Country" value={addressData.country} />
           </View>
         </View>
-
+ */}
         <TouchableOpacity 
           style={styles.logoutButton} 
           onPress={handleLogout}
         >
           <Text style={styles.logoutButtonText}>Logout</Text>
+        </TouchableOpacity>
+        
+        {/* Developer testing option */}
+        <TouchableOpacity 
+          style={styles.testButton} 
+          onPress={() => navigation.navigate('SupabaseTest')}
+        >
+          <Text style={styles.testButtonText}>Test Supabase Storage</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -201,10 +272,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     paddingTop: 60,
-  },
-  title: {
+  },  title: {
     fontSize: 28,
     fontFamily: 'Raleway-Bold',
+  },
+  profileImageContainer: {
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+    profileImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#eee',
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  imageUrl: {
+    fontSize: 10,
+    color: '#666',
+    marginBottom: 10,
+    textAlign: 'center',
   },
   section: {
     padding: 20,
@@ -266,5 +355,20 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: 'Raleway-Bold',
     color: '#000',
+  },
+  testButton: {
+    backgroundColor: '#f0f4ff',
+    borderWidth: 1,
+    borderColor: '#6a7de8',
+    borderRadius: 25,
+    padding: 12,
+    marginHorizontal: 20,
+    marginBottom: 30,
+    alignItems: 'center',
+  },
+  testButtonText: {
+    fontSize: 16,
+    fontFamily: 'Raleway-Medium',
+    color: '#4152c7',
   },
 });

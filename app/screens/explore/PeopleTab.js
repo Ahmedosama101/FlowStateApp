@@ -56,23 +56,21 @@ export default function PeopleTab({ navigation }) {
         return;
       }
 
-      // Get matched users
-      const { data: matches, error: matchesError } = await supabase
+      // Get all match requests (pending or accepted) involving the user
+      const { data: matchRequests, error: matchRequestsError } = await supabase
         .from('match_requests')
-        .select('requester_id, requested_id')
+        .select('requester_id, requested_id, status')
         .or(`requester_id.eq.${user.id},requested_id.eq.${user.id}`)
-        .eq('status', 'accepted');
+        .in('status', ['pending', 'accepted']);
 
-      if (matchesError) {
-        throw matchesError;
+      if (matchRequestsError) {
+        throw matchRequestsError;
       }
 
-      // Create an array of user IDs to exclude (matched users and current user)
+      // Create an array of user IDs to exclude (matched, requested, and current user)
       const userIdsToExclude = [user.id];
-      
-      // Add matched user IDs to the exclusion list
-      if (matches && matches.length > 0) {
-        matches.forEach(match => {
+      if (matchRequests && matchRequests.length > 0) {
+        matchRequests.forEach(match => {
           if (match.requester_id === user.id) {
             userIdsToExclude.push(match.requested_id);
           } else {
@@ -81,7 +79,7 @@ export default function PeopleTab({ navigation }) {
         });
       }
 
-      // Fetch profiles excluding the current user and matched users
+      // Fetch profiles excluding the current user and users with any match request
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select(`
